@@ -1,5 +1,6 @@
 import sys
 import itertools
+from enum import Enum
 from pprint import pprint
 
 trxes = list()
@@ -7,37 +8,112 @@ trxes = list()
 # Before Optimization
 # 작동 안하는 추상화 코드
 
+class EdgeLabel(Enum):
+    NONE = 0
+    SEND = 1
+    RECEIVE = 2
+    GENERATE = 3
+    ACT = 4
+
+class NodeLabel(Enum):
+    NONE = 0
+    PERSON = 1
+    ACTIVITY = 2
+    DATA = 3
+
 class Node():
-    m_iData = 0
-    m_iEdge = 0
-    m_iLabel = 0
+    m_Label = NodeLabel.NONE
+    m_strData = ""  # 잔액, 신용정보, 생성, 이상우, 국세청등의 노드 이름을 나타낸다
+    m_strLabel = "" # 현재 노드의 라벨을 나타낸다
     m_iWeight = 0
     m_iDegree = 0
 
-    def __init__(self, _iData, _iEdge, _iLabel, _iWeight, _iDegree):
-        self.m_iData = _iData
-        self.m_iEdge = _iEdge
-        self.m_iLabel = _iLabel
+    def __init__(self, _label, _strData, _strLabel, _iWeight, _iDegree):
+        self.m_Label = _label
+        self.m_strData = _strData
+        self.m_strLabel = _strLabel
         self.m_iWeight = _iWeight
         self.m_iDegree = _iDegree
 
+# Edge는 방향성과 어떤 활동을 하는지를 나타낸다
 class Edge():
-    m_LeftNode
-    m_RightNode
+    m_LeftNode = Node()
+    m_RightNode = Node()
+    m_Label = EdgeLabel.NONE
 
-    def __init__(self):
-        self.m_LeftNode = Node()
-        self.m_RightNode = Node()
+class Graph():
+    m_NodeList = List<Node>()
+    m_EdgeList = List<Edge>()
 
-# 껍데기 실행함수
-def fsg(D,sigma):
-    # None
+    def AddNode(_newNode) : 
+        m_NodeList.append(_newNode)
+    def AddEdge(_newEdge) :
+        m_EdgeList.append(_newEdge)
+
+# fsg실행함수
+def fsg(): #(D, sigma)
+    ## arguments 리스트로 저장
+    argv = sys.argv 
+    min_sup = float(sys.argv[1])/100
+    output = sys.argv[3]
+
+    ## 데이터 로딩
+    load_data() 
+    ## frequent_set들을 담을 리스트를 만듬
+    frequentCompleteset = ['',]
+    frequentCompleteset.append(generate_first_frequent_set())
+    
+    length = 3
+    bRun = True
+
+    while bRun:
+        ## k-frequentset의 키들만 뽑아낸다
+        previous_frequent_set = list(frequentCompleteset[length - 1].keys())
+
+        ## 이 키를 가지고 fsg-gen 실행
+        candidate = fsg_gen(previous_frequent_set)
+        
+        frequent_set = dict()
+        previous_frequent_set = change_element_to_set(previous_frequent_set)
+
+        for item_set in candidate: 
+            cnt = 0
+            for item in list(itertools.combinations(item_set, length - 1)):
+                item = set(item)
+
+                ## 하나라도 없으면 break
+                if item not in previous_frequent_set:
+                    break
+                cnt = cnt + 1
+            
+            ## 모든 combination이 있다면 frequent set에 넣는다
+            if cnt == length:
+                ## 다시 딕셔너리 키로 사용하기 위해 tuple로 변환해서 넣어준다
+                frequent_set[tuple(item_set)] = 0 
+    
+        ## k+1 frequent set을 DB Scan을 통해 count한다
+        for key in frequent_set.keys():
+            for trx in trxes:
+                if set(key) <= set(trx): 
+                    frequent_set[key] = frequent_set[key] + 1
+        
+        ## 마지막으로 minimum suppport로 가지치기
+        candidate = filter_by_min_sup(frequent_set)
+
+        ## 더 이상 후보를 generate 못하면 exit
+        if candidate == -1 | len(candidate) == 0: 
+            bRun = false
+        else:
+        ## frequest_set의 리스트에 추가하고 다음 candidate를 위해 길이를 1 증가
+            frequentCompleteset.append(candidate)
+            length = length + 1
     return
 
 def fsg_gen(frequentSet):
     candidate = list() # C(K+1) <- 0
     for i in range(frequentSet.count()): # for each paif of G(k), i <=j (cl (G Ki) <= cl (G kj))
-        if i%2 != 0 : 
+        if i%2 != 0 :
+            
             continue
         itemSet1 = frequentSet[i]
         itemSet2 = frequentSet[i+1]
@@ -68,7 +144,7 @@ def fsg_join(subgraphG1, subgraphG2, subgraphH1):
     return candidate
 
 def coreDetection(CurGraph, NextGraph):
-    coreSet = list()
+    coreSet = list<Node>()
     if CurGraph == NextGraph :
         return CurGraph
 
@@ -79,6 +155,7 @@ def coreDetection(CurGraph, NextGraph):
         # 가중치의 절대비교값 계산
         iSubsWeight = abs(edge.m_LeftNode.m_iWeight - edge.m_RightNode.m_iWeight)
 
+        # 가중치를 비교해가면서 차수를 감소하거나 증가시킨다
         if edge.m_LeftNode.m_iWeight < edge.m_RightNode.m_iWeight :
             edge.m_LeftNode.m_iDegree -= iSubsWeight
             edge.m_RightNode.m_iDegree += iSubsWeight
@@ -87,7 +164,8 @@ def coreDetection(CurGraph, NextGraph):
             edge.m_RightNode.m_iDegree -= iSubsWeight
 
     for node in CurGraph:
-        if node.m_iWeight >= 0 :
+        # 노드의 차수가 0이상인 경우, core에 node를 추가한다
+        if node.m_iDegree >= 0 :
             coreSet.append(node)
     return coreSet
 
@@ -224,58 +302,4 @@ def load_data():
 
 # 이 메인 자체가 fsg 알고리즘의 메인이 된다. 따라서 상기에 있는 D, Sigma를 매개변수로 하는 함수는 필요없다.
 if __name__ == '__main__':
-    ## arguments 리스트로 저장
-    argv = sys.argv 
-    min_sup = float(sys.argv[1])/100
-    output = sys.argv[3]
-
-    ## 데이터 로딩
-    load_data() 
-    ## frequent_set들을 담을 리스트를 만듬
-    frequentCompleteset = ['',]
-    frequentCompleteset.append(generate_first_frequent_set())
-    
-    length = 3
-    bRun = True
-
-    while bRun:
-        ## k-frequentset의 키들만 뽑아낸다
-        previous_frequent_set = list(frequentCompleteset[length - 1].keys())
-
-        ## 이 키를 가지고 fsg-gen 실행
-        candidate = fsg_gen(previous_frequent_set)
-        
-        frequent_set = dict()
-        previous_frequent_set = change_element_to_set(previous_frequent_set)
-
-        for item_set in candidate: 
-            cnt = 0
-            for item in list(itertools.combinations(item_set, length - 1)):
-                item = set(item)
-
-                ## 하나라도 없으면 break
-                if item not in previous_frequent_set:
-                    break
-                cnt = cnt + 1
-            
-            ## 모든 combination이 있다면 frequent set에 넣는다
-            if cnt == length:
-                ## 다시 딕셔너리 키로 사용하기 위해 tuple로 변환해서 넣어준다
-                frequent_set[tuple(item_set)] = 0 
-    
-        ## k+1 frequent set을 DB Scan을 통해 count한다
-        for key in frequent_set.keys():
-            for trx in trxes:
-                if set(key) <= set(trx): 
-                    frequent_set[key] = frequent_set[key] + 1
-        
-        ## 마지막으로 minimum suppport로 가지치기
-        candidate = filter_by_min_sup(frequent_set)
-
-        ## 더 이상 후보를 generate 못하면 exit
-        if candidate == -1 | len(candidate) == 0: 
-            bRun = false
-        else:
-        ## frequest_set의 리스트에 추가하고 다음 candidate를 위해 길이를 1 증가
-            frequentCompleteset.append(candidate)
-            length = length + 1
+    fsg()
