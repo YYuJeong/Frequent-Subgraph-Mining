@@ -4,6 +4,9 @@ from pprint import pprint
 
 trxes = list()
 
+# Before Optimization
+# 작동 안하는 추상화 코드
+
 class Node():
     m_iData = 0
     m_iEdge = 0
@@ -18,28 +21,74 @@ class Node():
         self.m_iWeight = _iWeight
         self.m_iDegree = _iDegree
 
+class Edge():
+    m_LeftNode
+    m_RightNode
+
+    def __init__(self):
+        self.m_LeftNode = Node()
+        self.m_RightNode = Node()
+
+# 껍데기 실행함수
 def fsg(D,sigma):
+    # None
     return
 
 def fsg_gen(frequentSet):
-    candidate = list()
-    for itemset in frequentSet:
-        hCoreSet = coreDetection()
+    candidate = list() # C(K+1) <- 0
+    for i in range(frequentSet.count()): # for each paif of G(k), i <=j (cl (G Ki) <= cl (G kj))
+        if i%2 != 0 : 
+            continue
+        itemSet1 = frequentSet[i]
+        itemSet2 = frequentSet[i+1]
 
-    return
+        hCoreSet = coreDetection(itemSet1, itemSet2)
+
+        for core in hCoreSet :
+            TentCandiSet = fsg_join(itemSet1, itemset2, hCoreSet)
+            for graph in TentCandiSet:
+                flag = true
+                for edge in graph :
+                    hEdgeCore = graph - edge
+                    if hEdgeCore != frequentSet:
+                        flag = false
+                        break
+                if flag :
+                    candidate += graph
+    return candidate
 
 def fsg_join(subgraphG1, subgraphG2, subgraphH1):
-    return
+    # e1 - the edge appears only in g1, not in h1
+    # e2 - the edge appears only in g2, not in h1
+    # M - all automorphisms of h1
+    candidate = list()
+
+    # for each automorphism M
+    # candidate += (edge1, edge2, core) contained set
+    return candidate
 
 def coreDetection(CurGraph, NextGraph):
     coreSet = list()
     if CurGraph == NextGraph :
         return CurGraph
+
     rootNode = Node()
+    
     for edge in CurGraph :
         # 가중치를 비교하여 노드의 차수를 변경한다
-        if edge.LeftNode.m_iWeight < edge.RightNode.m_iWeight :
-            edge.LeftNode.m_iDegree = edge.LeftNode.m_iDegree - edge.LeftNode.m_iWeight - edge.RightNode.m_iWeight
+        # 가중치의 절대비교값 계산
+        iSubsWeight = abs(edge.m_LeftNode.m_iWeight - edge.m_RightNode.m_iWeight)
+
+        if edge.m_LeftNode.m_iWeight < edge.m_RightNode.m_iWeight :
+            edge.m_LeftNode.m_iDegree -= iSubsWeight
+            edge.m_RightNode.m_iDegree += iSubsWeight
+        elif egde.m_LeftNode.m_iWeight >= edge.m_RightNode.m_iWeight :
+            edge.m_LeftNode.m_iDegree += iSubsWeight
+            edge.m_RightNode.m_iDegree -= iSubsWeight
+
+    for node in CurGraph:
+        if node.m_iWeight >= 0 :
+            coreSet.append(node)
     return coreSet
 
 
@@ -173,6 +222,7 @@ def load_data():
 
 # min_sup이 클수록 탐색속도가 빠르고 결과값이 적게 나온다
 
+# 이 메인 자체가 fsg 알고리즘의 메인이 된다. 따라서 상기에 있는 D, Sigma를 매개변수로 하는 함수는 필요없다.
 if __name__ == '__main__':
     ## arguments 리스트로 저장
     argv = sys.argv 
