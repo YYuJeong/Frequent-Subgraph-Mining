@@ -42,7 +42,6 @@ def run_query(input_query):
 input_query = """
 MATCH (n1)-[e]->(n2)
 RETURN n1, e, n2
-LIMIT 100
 """
 
 results = run_query(input_query)
@@ -95,58 +94,84 @@ print("=="*30)
 print("==: network is generated")
 
 
-
+"""
 for n in DG.nodes(data=True):
     print(n[1]['id'], n[1]['labels'], n[1]['properties'])
     print("--"*30)
-    
-#for e in DG.edges(data=True):
-#    print(e)
 
-DataName=[]
-DataFilePath=[]
-DataValue=[]
-DataOrigin=[]
+for e in DG.edges(data=True):
+    print(e)
+""" 
+#DataName=[]
+#DataFilePath=[]
+#DataValue=[]
+#DataOrigin=[]
 
-ActivityDate=[]
-ActivityName=[]
-ActivityDetail=[]
+#ActivityDate=[]
+#ActivityName=[]
+#ActivityDetail=[]
 
-PersonName=[]
-PersonP_Type=[]
-PersonPid=[]
+#PersonName=[]
+#PersonP_Type=[]
+#PersonPid=[]
 
-DataNodeLabel=[]
-ActivityNodeLabel=[]
-PersonNodeLabel=[]
+NodeLabel=[]
+NodeLabel.append([])
+NodeLabel.append([])
+EdgeLabel=[]
+FromIdx=[]
+ToIdx=[]
+From=[]
+To=[]
+Name=[]
 
- 
 
 for n in DG.nodes(data=True):
-
+    
 	if 'Data' in n[1]['labels']:
-		DataName.append(n[1]['properties']['name'])
-		DataFilePath.append(n[1]['properties']['file_path'])
-		DataValue.append(n[1]['properties']['value'])
-		DataOrigin.append(n[1]['properties']['origin'])
+		NodeLabel[0].append(n[1]['properties']['name'])        
+		NodeLabel[1].append(n[1]['id'])
+		#DataOrigin.append(n[1]['properties']['origin'])
 
 	if 'Activity' in n[1]['labels']:
-		ActivityName.append(n[1]['properties']['name'])
-		ActivityDate.append(n[1]['properties']['date'])
-		ActivityDetail.append(n[1]['properties']['detail'])
+		NodeLabel[0].append(n[1]['properties']['name'])        
+		NodeLabel[1].append(n[1]['id'])
+		#ActivityDetail.append(n[1]['properties']['detail'])
 
 	if 'Person' in n[1]['labels']:
-		PersonName.append(n[1]['properties']['name'])
-		PersonP_Type.append(n[1]['properties']['p_type'])
-		PersonPid.append(n[1]['properties']['pid'])
+		NodeLabel[0].append('Person')
+		NodeLabel[1].append(n[1]['id'])
+		Name.append(n[1]['properties']['name'])        
+	print(n)
 
+        
+
+
+for e in DG.edges(data=True):
+    FromIdx.append(NodeLabel[1].index(e[0]))
+    ToIdx.append(NodeLabel[1].index(e[1]))
+    
+    #From.append(NodeLabel[0][FromIdx])
+    #To.append(NodeLabel[0][ToIdx])
+    EdgeLabel.append(e[2]['type'])
+
+for name in Name:
+    input_query = "match (n1:Person{name:\""+name+"\"})match (n1)-[*1..3]-(n2) return n1,n2 limit 25"
+    results = run_query(input_query)
+
+
+		
  
-
+"""
 DataNum = len(DataName)
 ActivityNum = len(ActivityName)
 PersonNum = len(PersonName)
+"""
 
+NodeLen = len(NodeLabel)
+EdgeLen = len(EdgeLabel)
 
+"""
 DataNameArray = array(DataName)
 DataFilePathArray = array(DataFilePath)
 DataValueArray = array(DataValue)
@@ -159,10 +184,14 @@ ActivityDetailArray = array(ActivityDetail)
 PersonNameArray = array(PersonName)
 PersonP_TypeArray = array(PersonP_Type)
 PersonPidArray = array(PersonPid)
+"""
 
+NodeLabelArray = array(NodeLabel[0])
+EdgeLabelArray = array(EdgeLabel)
 
-label_encoder = LabelEncoder()
-
+NodeLabel_encoder = LabelEncoder()
+EdgeLabel_encoder = LabelEncoder()
+"""
 DataNameEncoded = label_encoder.fit_transform(DataNameArray)
 DataFilePathEncoded = label_encoder.fit_transform(DataFilePathArray)
 DataValueEncoded = label_encoder.fit_transform(DataValueArray)
@@ -175,42 +204,22 @@ ActivityDetailEncoded = label_encoder.fit_transform(ActivityDetailArray)
 PersonNameEncoded = label_encoder.fit_transform(PersonNameArray)
 PersonP_TypeEncoded = label_encoder.fit_transform(PersonP_TypeArray)
 PersonPidEncoded = label_encoder.fit_transform(PersonPidArray)
-
-
-Datamuchjari = len(str(DataName))
-Activitymuchjari = len(str(ActivityName))
-Personmuchjari = len(str(PersonName))
-
- 
-
- 
-
-
 """
-for i in range(len(DataName)):
-    DataNodeLabel.append(str(DataNameEncoded[i]).zfill(Datamuchjari)+str(DataFilePathEncoded[i]).zfill(Datamuchjari)+str(DataValue[i]).zfill(Datamuchjari)+str(DataOriginEncoded[i]).zfill(Datamuchjari)) 
-    print(DataNodeLabel[i])
-    
-for i in range(len(ActivityName)):
-    ActivityNodeLabel.append(str(ActivityNameEncoded[i]).zfill(Activitymuchjari)+str(ActivityDateEncoded[i]).zfill(Activitymuchjari)+str(ActivityDetailEncoded[i]).zfill(Activitymuchjari))
-    print(ActivityNodeLabel[i])
+NodeLabelEncoded = NodeLabel_encoder.fit_transform(NodeLabelArray)
+EdgeLabelEncoded = EdgeLabel_encoder.fit_transform(EdgeLabelArray)
 
-for i in range(len(PersonName)): 
-    PersonNodeLabel.append(str(PersonNameEncoded[i]).zfill(Personmuchjari)+str(PersonP_TypeEncoded[i]).zfill(Personmuchjari) + str(PersonPidEncoded[i]).zfill(Personmuchjari))
-    print(PersonNodeLabel[i])
-"""
-print("data")
-for i in range(len(DataName)):
-    DataNodeLabel.append(str(DataNameEncoded[i])+"0"+str(DataFilePathEncoded[i])+"0"+str(DataValueEncoded[i])+"0"+str(DataOriginEncoded[i])) 
-    print(DataNodeLabel[i])
-    
-print("activity")
-for i in range(len(ActivityName)):
-    ActivityNodeLabel.append(str(ActivityNameEncoded[i])+"0"+str(ActivityDateEncoded[i])+"0"+str(ActivityDetailEncoded[i]))
-    print(ActivityNodeLabel[i])
 
-print("person")
-for i in range(len(PersonName)): 
-    PersonNodeLabel.append(str(PersonNameEncoded[i])+"0"+str(PersonP_TypeEncoded[i])+"0" + str(PersonPidEncoded[i]))
-    print(PersonNodeLabel[i])
-    
+for i in range(EdgeLen):
+    From.append(NodeLabelEncoded[FromIdx[i]])
+    To.append(NodeLabelEncoded[ToIdx[i]])
+
+
+print(NodeLabelEncoded)
+print(EdgeLabelEncoded)
+print(EdgeLen)
+print(From)
+print(To)
+
+
+
+
