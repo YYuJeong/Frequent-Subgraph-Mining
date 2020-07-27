@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Jul 27 17:10:13 2020
+
+@author: DILab
+"""
+
 
 """
 Created on Fri Jul 10 01:21:25 2020
@@ -82,7 +89,7 @@ for i, path in enumerate(results):
         'type':path['e'].type, 
         'properties':dict(path['e'])
     }
-    # print(e_dict)
+
     # 해당 노드를 넣은 적이 없으면 넣는다.
     if n1_dict['id'] not in DG:
         DG.add_nodes_from([
@@ -100,6 +107,7 @@ for i, path in enumerate(results):
     ])
 
 
+
 NodeLabel=[]
 NodeLabel.append([])
 NodeLabel.append([])
@@ -115,17 +123,38 @@ EdgeLabelEncoded=[]
 for n in DG.nodes(data=True):
 
 	if 'Person' in n[1]['labels']:
+		#NodeLabel[0].append('person')
+		NodeLabel[1].append(n[1]['id'])
 		if n[1]['properties']['p_type'] == '개인':
 			Name.append(n[1]['properties']['name'])
+			NodeLabel[0].append('person')
+		else:
+			NodeLabel[0].append('person'+ n[1]['properties']['name'])
+	if 'Data' in n[1]['labels']:
+		Label = 'data'+ n[1]['properties']['name']
+		NodeLabel[0].append(Label)        
+		NodeLabel[1].append(n[1]['id'])
+
+	if 'Activity' in n[1]['labels']:
+		NodeLabel[0].append('activity'+n[1]['properties']['name'])        
+		NodeLabel[1].append(n[1]['id'])
+
 		
+
+NodeLabelArray = array(NodeLabel[0])
+NodeLabel_encoder = LabelEncoder()
+NodeLabelEncoded = NodeLabel_encoder.fit_transform(NodeLabelArray)
 count=0
 
 
+NodeLabel1=[]
+
+# 이 전에서 라벨 인코딩 해야 했음
 for name in Name:
     
-    del NodeLabel[:]
-    NodeLabel.append([])
-    NodeLabel.append([])
+    del NodeLabel1[:]
+    NodeLabel1.append([])
+    NodeLabel1.append([])
     del EdgeLabel[:]
     del FromIdx[:]
     del ToIdx[:]
@@ -191,7 +220,11 @@ for name in Name:
     # edge를 넣어준다. 노드의 경우 중복으로 들어갈 수 있으므로 중복을 체크해서 넣어주지만, 
     # edge의 경우 중복을 체크하지 않아도 문제없다.
         DG1.add_edges_from([
-                (n1_dict['id'], n2_dict['id'], e1_dict),(n2_dict['id'], n3_dict['id'], e2_dict)
+                (n1_dict['id'], n2_dict['id'], e1_dict)
+                ])
+    
+        DG1.add_edges_from([
+                (n2_dict['id'], n3_dict['id'], e2_dict)
                 ])
 
     
@@ -199,57 +232,48 @@ for name in Name:
         
         if 'Data' in n[1]['labels']:
             
-            if(n[1]['properties'].get('file_path')):
-                Label = 'data'+ n[1]['properties']['name']+ n[1]['properties']['file_path']
-            else:
-                Label = 'data'+ n[1]['properties']['name']+ n[1]['properties']['value']
+            Label = 'data'+ n[1]['properties']['name']
+            
 
-            NodeLabel[0].append(Label)        
-            NodeLabel[1].append(n[1]['id'])
+            NodeLabel1[0].append(NodeLabelEncoded[NodeLabel[0].index(Label)]+2)        
+            NodeLabel1[1].append(n[1]['id'])
 
         if 'Activity' in n[1]['labels']:
-            NodeLabel[0].append('activity'+n[1]['properties']['name'])        
-            NodeLabel[1].append(n[1]['id'])
+            Label = 'activity'+n[1]['properties']['name']
+            NodeLabel1[0].append(NodeLabelEncoded[NodeLabel[0].index(Label)]+2)        
+            NodeLabel1[1].append(n[1]['id'])
 
         if 'Person' in n[1]['labels']:
-            NodeLabel[0].append('person'+ n[1]['properties']['name'])
-            NodeLabel[1].append(n[1]['id'])
+            if n[1]['properties']['p_type'] == '개인':
+                Label = 'person'
+            else:
+                Label = 'person' + n[1]['properties']['name']
+          
+            NodeLabel1[0].append(NodeLabelEncoded[NodeLabel[0].index(Label)]+2)
+            NodeLabel1[1].append(n[1]['id'])
     
   
     for e in DG1.edges(data=True):
-        #print(e)
-        FromIdx.append(NodeLabel[1].index(e[0]))
-        ToIdx.append(NodeLabel[1].index(e[1]))
+        
+        FromIdx.append(NodeLabel1[1].index(e[1]))
+        ToIdx.append(NodeLabel1[1].index(e[0]))
         EdgeLabel.append(e[2]['type'])
-    print(NodeLabel[0])
-    #print(FromIdx)
-    #print(ToIdx)
+   
+
 
         
-    NodeLen = len(NodeLabel[0])
+    NodeLen = len(NodeLabel1[0])
     EdgeLen = len(EdgeLabel)
     
-    NodeLabelArray = array(NodeLabel[0])
     EdgeLabelArray = array(EdgeLabel)
-    
-
-		
-
-    NodeLabel_encoder = LabelEncoder()
-    EdgeLabel_encoder = LabelEncoder()
-
-
-    NodeLabelEncoded = NodeLabel_encoder.fit_transform(NodeLabelArray)
+    EdgeLabel_encoder = LabelEncoder()    
     EdgeLabelEncoded = EdgeLabel_encoder.fit_transform(EdgeLabelArray)
     
-    print(NodeLabelEncoded+2)
-    for i in range(EdgeLen):
-        From.append(NodeLabelEncoded[FromIdx[i]])
-        To.append(NodeLabelEncoded[ToIdx[i]])
+
 
     print("t # "+str(count))
     for i in range(NodeLen):
-        print("v " + str(i) + " " + str(NodeLabelEncoded[i]+2))
+        print("v " + str(i) + " " + str(NodeLabel1[0][i]))
     for i in range(EdgeLen):
         print("e", end=" ")
         print(FromIdx[i], end=" ")
