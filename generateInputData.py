@@ -45,18 +45,22 @@ def get_allGraphs(tx, name):
     '''
     
     # separate path to [node, node]
-    prov = [] 
+
+    prov = []
     for g in allGraphs:
         if len(g[0]) == 2:
-            prov.append(list(g[0].nodes))
- 
+            prov.append([g[0].relationships[0].nodes[0], g[0].relationships[0].nodes[1], g[0].relationships[0].type])
+            prov.append([g[0].relationships[1].nodes[0], g[0].relationships[1].nodes[1], g[0].relationships[1].type])
+           
+        
+    ''' 
     pr2dic = []
-    for pr in prov:
+    for pr in prov1:
         p2dic = []
         p2dic = [[pr[0], pr[1]], [pr[1], pr[2]]]
+        print("pr2Dict")
         pr2dic.append(p2dic)
         
-
         
     # direction of node : [node, node] means node -> node  
     processFlag = 0
@@ -69,39 +73,41 @@ def get_allGraphs(tx, name):
                 processFlag = 0
             if pr[1][1].get('name') == '가공':
                 processFlag = 1
-
+    print(pr2dic)
     # flatten graph list
     gList = []
     for p in pr2dic:
         gList.append(p[0])
         gList.append(p[1])
-            
-
+    print(gList)        
+    '''
+    
     # encoding graph node to dictionary
     graph2Dic = []
-    for gl in gList:
+    for gl in prov:
         node2Dic = []        
         for g in gl:
-
-            if 'Person' in g.labels:
-                if g.get('p_type') == '기관':
+            if type(g) != str:
+                if 'Person' in g.labels:
+                    if g.get('p_type') == '기관':
+                        node2Dic.append(allDict[g.get('name')])
+                    else:
+                        node2Dic.append(allDict['개인'])
+                elif 'Data'in g.labels:
+                    '''
+                    if g.get('value') == '':
+                        dataTuple = (g.get('name'), g.get('file_path'))
+                    else:
+                        dataTuple = (g.get('name'), g.get('value'))
+                    '''
                     node2Dic.append(allDict[g.get('name')])
-                else:
-                    node2Dic.append(allDict['개인'])
-            elif 'Data'in g.labels:
-                '''
-                if g.get('value') == '':
-                    dataTuple = (g.get('name'), g.get('file_path'))
-                else:
-                    dataTuple = (g.get('name'), g.get('value'))
-                '''
-                node2Dic.append(allDict[g.get('name')])
-            elif 'Activity' in g.labels:
-                node2Dic.append(allDict[g.get('name')])
+                elif 'Activity' in g.labels:
+                    node2Dic.append(allDict[g.get('name')])
+            else:
+                node2Dic.append(edgeDict[g])
         graph2Dic.append(node2Dic)
 
     return graph2Dic
-  
 
 with driver.session() as session:
      
@@ -146,10 +152,14 @@ with driver.session() as session:
      #activityNodes to dict
      activityNodes = ['생성', '가공', '제공']
      actDict = {k: (v+len(perDict)+len(dataDict)+len(instDict)) for v, k in enumerate(activityNodes)}
-        
-     allDict = {**perDict, **instDict,**dataDict, **actDict,}
-     print(allDict)
      
+     #edge labels to dict
+     edgeLabels = ['Act', 'Generate', 'Send', 'Receive']
+     edgeDict = {k: v for v, k in enumerate(edgeLabels)}
+
+     allDict = {**perDict, **instDict,**dataDict, **actDict}
+     print(allDict)
+
      #get all graphs 
      ''' 
      allGraph2Dic : Neo4j의 모든 이력 그래프들이 딕셔너리로 표현되어 저장
@@ -157,9 +167,9 @@ with driver.session() as session:
      allGraph2Dic[i] : i-번째 이력그래프가 [[node1, node2],... , [nodeN-1, nodeN]] 형태로 저장됨
      [node1, node2]: node1과 node2가 node1 -> node2 방향으로 연결
      '''
+  
      allGraph2Dic = []
      for key in personDict:
          allGraph2Dic.append(session.read_transaction(get_allGraphs, key))
- 
-         
+  
 driver.close()
