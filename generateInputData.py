@@ -27,7 +27,7 @@ def search_perNode(tx):
     return personNodes
 
 def search_dataNode(tx):
-    dataNodes = tx.run("Match (d:Data) return d.name, d.value, d.file_path")
+    dataNodes = tx.run("Match (d:Data) return  DISTINCT d.name")
     
     return dataNodes 
 
@@ -49,7 +49,7 @@ def get_allGraphs(tx, name):
     for g in allGraphs:
         if len(g[0]) == 2:
             prov.append(list(g[0].nodes))
-
+ 
     pr2dic = []
     for pr in prov:
         p2dic = []
@@ -82,14 +82,20 @@ def get_allGraphs(tx, name):
     for gl in gList:
         node2Dic = []        
         for g in gl:
+
             if 'Person' in g.labels:
-                node2Dic.append(allDict[g.get('name')])
+                if g.get('p_type') == '기관':
+                    node2Dic.append(allDict[g.get('name')])
+                else:
+                    node2Dic.append(allDict['개인'])
             elif 'Data'in g.labels:
+                '''
                 if g.get('value') == '':
                     dataTuple = (g.get('name'), g.get('file_path'))
                 else:
                     dataTuple = (g.get('name'), g.get('value'))
-                node2Dic.append(allDict[dataTuple])
+                '''
+                node2Dic.append(allDict[g.get('name')])
             elif 'Activity' in g.labels:
                 node2Dic.append(allDict[g.get('name')])
         graph2Dic.append(node2Dic)
@@ -102,38 +108,46 @@ with driver.session() as session:
      # All personNodes to dict 
      personNodes = session.read_transaction(search_personNode)
      perNodes = session.read_transaction(search_perNode)
+
      records = []
-     for personNode in personNodes:
+     for personNode in perNodes:
          records.append(personNode["p.name"])
      personDict = {k: v for v, k in enumerate(records)}
 
-     '''
-     records = []
-     for personNode in perNodes:
-         records.append('Person')
-     perDict = {k: v for v, k in enumerate(records)}
-     '''
      perDict = {'개인': 0}
-     dataDict = {'데이터': 0}
+     records = []
+    
+     for personNode in personNodes:
+         records.append(personNode["p.name"])
+     instDict = {k: v + len(perDict) for v, k in enumerate(records)}
+   
+
+     #dataDict = {'데이터': 0}
      #dataNodes to dict
      dataNodes = session.read_transaction(search_dataNode)
      records = []
      datas = []
      for dataNode in dataNodes:
-         datas.append(dataNode["d.name"])
+         records.append(dataNode["d.name"])
+         '''
          if dataNode["d.value"] == '' :
              datas.append(dataNode["d.file_path"])
          else:    
              datas.append(dataNode["d.value"])
+         
+            
+ 
          records.append(datas)
          datas = []
-     dataDict = {tuple(k): (v+len(personDict)) for v, k in enumerate(records)}
+         '''
+     dataDict = {k: (v+len(perDict)+len(instDict)) for v, k in enumerate(records)}
+
      
      #activityNodes to dict
      activityNodes = ['생성', '가공', '제공']
-     actDict = {k: (v+len(personDict)+len(dataDict)) for v, k in enumerate(activityNodes)}
+     actDict = {k: (v+len(perDict)+len(dataDict)+len(instDict)) for v, k in enumerate(activityNodes)}
         
-     allDict = {**personDict, **dataDict, **actDict,}
+     allDict = {**perDict, **instDict,**dataDict, **actDict,}
      print(allDict)
      
      #get all graphs 
@@ -144,7 +158,7 @@ with driver.session() as session:
      [node1, node2]: node1과 node2가 node1 -> node2 방향으로 연결
      '''
      allGraph2Dic = []
-     for key in perDict:
+     for key in personDict:
          allGraph2Dic.append(session.read_transaction(get_allGraphs, key))
  
          
