@@ -18,7 +18,7 @@ from neo4j import GraphDatabase
 driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "wowhi223"))
 
 def search_personNode(tx):
-    personNodes = tx.run("Match (p:Person) return DISTINCT p.name")
+    personNodes = tx.run("Match (p:Person) where p.p_type = '기관' return DISTINCT p.name")
 
     return personNodes
  
@@ -96,6 +96,7 @@ def get_allGraphs(tx, name):
 
     return graph2Dic
   
+
 with driver.session() as session:
      
      # All personNodes to dict 
@@ -105,12 +106,15 @@ with driver.session() as session:
      for personNode in personNodes:
          records.append(personNode["p.name"])
      personDict = {k: v for v, k in enumerate(records)}
-     
+
+     '''
      records = []
      for personNode in perNodes:
-         records.append(personNode["p.name"])
+         records.append('Person')
      perDict = {k: v for v, k in enumerate(records)}
-     
+     '''
+     perDict = {'개인': 0}
+     dataDict = {'데이터': 0}
      #dataNodes to dict
      dataNodes = session.read_transaction(search_dataNode)
      records = []
@@ -142,6 +146,6 @@ with driver.session() as session:
      allGraph2Dic = []
      for key in perDict:
          allGraph2Dic.append(session.read_transaction(get_allGraphs, key))
-     
+ 
          
 driver.close()
