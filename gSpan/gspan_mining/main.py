@@ -313,11 +313,13 @@ parser.add_argument(
     default=False,
     help='bool, verbose output, default off'
 )
+"""
 parser.add_argument(
     'database_file_name',
     type=str,
     help='str, database file name'
 )
+"""
 parser.add_argument(
     '-p', '--plot',
     type=str2bool,
@@ -648,7 +650,7 @@ class gSpan(object):
     """`gSpan` algorithm."""
 
     def __init__(self,
-                 database_file_name,
+                 #database_file_name,
                  min_support=10,
                  min_num_vertices=1,
                  max_num_vertices=float('inf'),
@@ -658,7 +660,7 @@ class gSpan(object):
                  visualize=False,
                  where=False):
         """Initialize gSpan instance."""
-        self._database_file_name = database_file_name
+        #self._database_file_name = database_file_name
         self.graphs = dict()
         self._max_ngraphs = max_ngraphs
         self._is_undirected = is_undirected
@@ -1048,13 +1050,13 @@ def main(FLAGS=None):
 
     if FLAGS is None:
         FLAGS, _ = parser.parse_known_args(args=sys.argv[1:])
-
+    """
     if not os.path.exists(FLAGS.database_file_name):
         print('{} does not exist.'.format(FLAGS.database_file_name))
         sys.exit()
-
+    """
     gs = gSpan(
-        database_file_name=FLAGS.database_file_name,
+        #database_file_name=FLAGS.database_file_name,
         min_support=FLAGS.min_support,
         min_num_vertices=FLAGS.lower_bound_of_num_vertices,
         max_num_vertices=FLAGS.upper_bound_of_num_vertices,
