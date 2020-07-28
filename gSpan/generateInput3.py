@@ -25,9 +25,7 @@ import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import OneHotEncoder
 
-f=open('./graphdata/output.txt','w', encoding='utf-8')
-stdout=sys.stdout
-sys.stdout=f
+
 driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "wowhi223"))
 """
 def export_query():
@@ -146,7 +144,7 @@ NodeLabel_encoder = LabelEncoder()
 NodeLabelEncoded = NodeLabel_encoder.fit_transform(NodeLabelArray)
 count=0
 
-
+output=""
 NodeLabel1=[]
 
 # 이 전에서 라벨 인코딩 해야 했음
@@ -271,54 +269,17 @@ for name in Name:
     
 
 
-    print("t # "+str(count))
+    output = output+"t # "+str(count)+"\n"
     for i in range(NodeLen):
-        print("v " + str(i) + " " + str(NodeLabel1[0][i]))
+        output = output + "v " + str(i) + " " + str(NodeLabel1[0][i])+"\n"
     for i in range(EdgeLen):
-        print("e", end=" ")
-        print(FromIdx[i], end=" ")
-        print(ToIdx[i], end=" ")
-        print(str(EdgeLabelEncoded[i]+2))
+        output = output + "e " + str(FromIdx[i]) + " " + str(ToIdx[i]) + " " + str(EdgeLabelEncoded[i]+2)+"\n"
+        
     count+=1
     DG1.clear()
-print("t # -1")
-
-f.close()
-sys.stdout=stdout
+output = output + "t # -1"
 
 
 
-"""
-
-class cd:
-
-
-
-    def __init__(self, newPath):
-
-        self.newPath = os.path.expanduser(newPath)
-
- 
-
-    def __enter__(self):
-
-        self.savedPath = os.getcwd()
-
-        os.chdir(self.newPath)
-
- 
-
-    def __exit__(self, etype, value, traceback):
-
-        os.chdir(self.savedPath)
-
- 
-
-with cd("C:/Users/DILab/Documents/Frequent-Subgraph-Mining/gSpan"):
-
-    subprocess.call("python -m gspan_")
-""" 
-
-   
 
 
