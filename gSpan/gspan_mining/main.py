@@ -2,8 +2,7 @@
 # -*- coding=utf-8 -*-
 from __future__ import absolute_import
 from __future__ import division
-from __future__ import print_function\
-import os
+from __future__ import print_function
 import sys
 import codecs
 import collections
@@ -19,251 +18,6 @@ from numpy import argmax
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import OneHotEncoder
-
-
-driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "wowhi223"))
-
-def run_query(input_query):
-    """
-    - input_query를 전달받아서 실행하고 그 결과를 출력하는 함수입니다.
-    """
-    # 세션을 열어줍니다.
-    with driver.session() as session: 
-        # 쿼리를 실행하고 그 결과를 results에 넣어줍니다.
-        results = session.run(
-            input_query,
-            parameters={}
-        )
-        return results
-
-# 다음과 같이 쿼리하여, 노드, 엣지, 노드를 모두 가져온다.
-
-input_query = """
-MATCH (n1)-[e]->(n2)
-RETURN n1, e, n2
-"""
-
-results = run_query(input_query)
-# result => neo4j.BoltStatementResult object
-
-
-# 긁어온 쿼리를 다음의 방향성이 있는 그래프에 넣어준다.
-DG = nx.DiGraph()
-
-for i, path in enumerate(results):
-    # 앞서, 쿼리에서 변수명을 n1, n2, e, 로 가져왔으므로 각 값에 할당된 것을 변수에 추가로 넣어준다.
-    n1, n2, e = path['n1'], path['n2'], path['e']
-    # 그리고, 보통 노드의 경우는 id, labels, properties 로 나누어 정보가 저장되어 있다.
-    # 이를 가져오기 편하게, dictionary로 변경한다. 
-    n1_dict = {
-        'id': path['n1'].id, 
-        'labels':path['n1'].labels, 
-        'properties':dict(path['n1'])
-    }
-    n2_dict = {
-        'id': path['n2'].id, 
-        'labels':path['n2'].labels, 
-        'properties':dict(path['n2'])
-    }
-    # 마찬가지로, edge의 경우도 아래와 같이 정보를 저장한다.
-    e_dict = {
-        'id':path['e'].id, 
-        'type':path['e'].type, 
-        'properties':dict(path['e'])
-    }
-
-    # 해당 노드를 넣은 적이 없으면 넣는다.
-    if n1_dict['id'] not in DG:
-        DG.add_nodes_from([
-            (n1_dict['id'], n1_dict)
-        ])
-    # 해당 노드를 넣은 적이 없으면 넣는다.
-    if n2_dict['id'] not in DG:
-        DG.add_nodes_from([
-            (n2_dict['id'], n2_dict)
-        ])
-    # edge를 넣어준다. 노드의 경우 중복으로 들어갈 수 있으므로 중복을 체크해서 넣어주지만, 
-    # edge의 경우 중복을 체크하지 않아도 문제없다.
-    DG.add_edges_from([
-        (n1_dict['id'], n2_dict['id'], e_dict)
-    ])
-
-
-
-NodeLabel=[]
-NodeLabel.append([])
-NodeLabel.append([])
-EdgeLabel=[]
-FromIdx=[]
-ToIdx=[]
-From=[]
-To=[]
-Name=[]
-NodeLabelEncoded=[]
-EdgeLabelEncoded=[]
-
-for n in DG.nodes(data=True):
-
-	if 'Person' in n[1]['labels']:
-		#NodeLabel[0].append('person')
-		NodeLabel[1].append(n[1]['id'])
-		if n[1]['properties']['p_type'] == '개인':
-			Name.append(n[1]['properties']['name'])
-			NodeLabel[0].append('person')
-		else:
-			NodeLabel[0].append('person'+ n[1]['properties']['name'])
-	if 'Data' in n[1]['labels']:
-		Label = 'data'+ n[1]['properties']['name']
-		NodeLabel[0].append(Label)        
-		NodeLabel[1].append(n[1]['id'])
-
-	if 'Activity' in n[1]['labels']:
-		NodeLabel[0].append('activity'+n[1]['properties']['name'])        
-		NodeLabel[1].append(n[1]['id'])
-
-		
-
-NodeLabelArray = array(NodeLabel[0])
-NodeLabel_encoder = LabelEncoder()
-NodeLabelEncoded = NodeLabel_encoder.fit_transform(NodeLabelArray)
-count=0
-
-output=""
-NodeLabel1=[]
-
-# 이 전에서 라벨 인코딩 해야 했음
-for name in Name:
-    
-    del NodeLabel1[:]
-    NodeLabel1.append([])
-    NodeLabel1.append([])
-    del EdgeLabel[:]
-    del FromIdx[:]
-    del ToIdx[:]
-    del From[:]
-    del To[:]
-
-    n1_dict.clear()
-    n2_dict.clear()
-    e_dict.clear()
-    
-    input_query = "match (n1:Person{name:\""+name+"\"})match (n1)-[e1]-(n2)-[e2]-(n3) return n1,n2,n3,e1,e2"
-    results = run_query(input_query)
-    DG1 = nx.DiGraph()
-
-    for i, path in enumerate(results):
-        
-    # 앞서, 쿼리에서 변수명을 n1, n2, e, 로 가져왔으므로 각 값에 할당된 것을 변수에 추가로 넣어준다.
-        n1, n2, n3, e1, e2 = path['n1'], path['n2'], path['n3'], path['e1'], path['e2']
-    # 그리고, 보통 노드의 경우는 id, labels, properties 로 나누어 정보가 저장되어 있다.
-    # 이를 가져오기 편하게, dictionary로 변경한다. 
-        
-        n1_dict = {
-                'id': path['n1'].id, 
-                'labels':path['n1'].labels, 
-                'properties':dict(path['n1'])
-                }
-        n2_dict = {
-                'id': path['n2'].id, 
-                'labels':path['n2'].labels, 
-                'properties':dict(path['n2'])
-                }
-        n3_dict = {
-                'id': path['n3'].id, 
-                'labels':path['n3'].labels, 
-                'properties':dict(path['n3'])
-                }
-    # 마찬가지로, edge의 경우도 아래와 같이 정보를 저장한다.
-        e1_dict = {
-                'id':path['e1'].id, 
-                'type':path['e1'].type, 
-                'properties':dict(path['e1'])
-                }
-        e2_dict = {
-                'id':path['e2'].id, 
-                'type':path['e2'].type, 
-                'properties':dict(path['e2'])
-                }
-    # print(e_dict)
-    # 해당 노드를 넣은 적이 없으면 넣는다.
-        if n1_dict['id'] not in DG1:
-           DG1.add_nodes_from([
-                   (n1_dict['id'], n1_dict)
-                   ])
-    # 해당 노드를 넣은 적이 없으면 넣는다.
-        if n2_dict['id'] not in DG1:
-            DG1.add_nodes_from([
-                    (n2_dict['id'], n2_dict)
-                    ])
-        if n3_dict['id'] not in DG1:
-            DG1.add_nodes_from([
-                    (n3_dict['id'], n3_dict)
-                    ])
-    # edge를 넣어준다. 노드의 경우 중복으로 들어갈 수 있으므로 중복을 체크해서 넣어주지만, 
-    # edge의 경우 중복을 체크하지 않아도 문제없다.
-        DG1.add_edges_from([
-                (n1_dict['id'], n2_dict['id'], e1_dict)
-                ])
-    
-        DG1.add_edges_from([
-                (n2_dict['id'], n3_dict['id'], e2_dict)
-                ])
-
-    
-    for n in DG1.nodes(data=True):
-        
-        if 'Data' in n[1]['labels']:
-            
-            Label = 'data'+ n[1]['properties']['name']
-            
-
-            NodeLabel1[0].append(NodeLabelEncoded[NodeLabel[0].index(Label)]+2)        
-            NodeLabel1[1].append(n[1]['id'])
-
-        if 'Activity' in n[1]['labels']:
-            Label = 'activity'+n[1]['properties']['name']
-            NodeLabel1[0].append(NodeLabelEncoded[NodeLabel[0].index(Label)]+2)        
-            NodeLabel1[1].append(n[1]['id'])
-
-        if 'Person' in n[1]['labels']:
-            if n[1]['properties']['p_type'] == '개인':
-                Label = 'person'
-            else:
-                Label = 'person' + n[1]['properties']['name']
-          
-            NodeLabel1[0].append(NodeLabelEncoded[NodeLabel[0].index(Label)]+2)
-            NodeLabel1[1].append(n[1]['id'])
-    
-  
-    for e in DG1.edges(data=True):
-        
-        FromIdx.append(NodeLabel1[1].index(e[1]))
-        ToIdx.append(NodeLabel1[1].index(e[0]))
-        EdgeLabel.append(e[2]['type'])
-   
-
-
-        
-    NodeLen = len(NodeLabel1[0])
-    EdgeLen = len(EdgeLabel)
-    
-    EdgeLabelArray = array(EdgeLabel)
-    EdgeLabel_encoder = LabelEncoder()    
-    EdgeLabelEncoded = EdgeLabel_encoder.fit_transform(EdgeLabelArray)
-    
-
-
-    output = output+"t # "+str(count)+"\n"
-    for i in range(NodeLen):
-        output = output + "v " + str(i) + " " + str(NodeLabel1[0][i])+"\n"
-    for i in range(EdgeLen):
-        output = output + "e " + str(FromIdx[i]) + " " + str(ToIdx[i]) + " " + str(EdgeLabelEncoded[i]+2)+"\n"
-        
-    count+=1
-    DG1.clear()
-output = output + "t # -1"
-
-
 
 
 
@@ -335,156 +89,13 @@ parser.add_argument(
 )
 
 
-
+output=""
 VACANT_EDGE_ID = -1
 VACANT_VERTEX_ID = -1
 VACANT_EDGE_LABEL = -1
 VACANT_VERTEX_LABEL = -1
 VACANT_GRAPH_ID = -1
 AUTO_EDGE_ID = -1
-
-
-class Edge(object):
-    """Edge class."""
-
-    def __init__(self,
-                 eid=VACANT_EDGE_ID,
-                 frm=VACANT_VERTEX_ID,
-                 to=VACANT_VERTEX_ID,
-                 elb=VACANT_EDGE_LABEL):
-        """Initialize Edge instance.
-
-        Args:
-            eid: edge id.
-            frm: source vertex id.
-            to: destination vertex id.
-            elb: edge label.
-        """
-        self.eid = eid
-        self.frm = frm
-        self.to = to
-        self.elb = elb
-
-
-class Vertex(object):
-    """Vertex class."""
-
-    def __init__(self,
-                 vid=VACANT_VERTEX_ID,
-                 vlb=VACANT_VERTEX_LABEL):
-        """Initialize Vertex instance.
-
-        Args:
-            vid: id of this vertex.
-            vlb: label of this vertex.
-        """
-        self.vid = vid
-        self.vlb = vlb
-        self.edges = dict()
-
-    def add_edge(self, eid, frm, to, elb):
-        """Add an outgoing edge."""
-        self.edges[to] = Edge(eid, frm, to, elb)
-
-
-class Graph(object):
-    """Graph class."""
-
-    def __init__(self,
-                 gid=VACANT_GRAPH_ID,
-                 is_undirected=True,
-                 eid_auto_increment=True):
-        """Initialize Graph instance.
-
-        Args:
-            gid: id of this graph.
-            is_undirected: whether this graph is directed or not.
-            eid_auto_increment: whether to increment edge ids automatically.
-        """
-        self.gid = gid
-        self.is_undirected = is_undirected
-        self.vertices = dict()
-        self.set_of_elb = collections.defaultdict(set)
-        self.set_of_vlb = collections.defaultdict(set)
-        self.eid_auto_increment = eid_auto_increment
-        self.counter = itertools.count()
-
-    def get_num_vertices(self):
-        """Return number of vertices in the graph."""
-        return len(self.vertices)
-
-    def add_vertex(self, vid, vlb):
-        """Add a vertex to the graph."""
-        if vid in self.vertices:
-            return self
-        self.vertices[vid] = Vertex(vid, vlb)
-        self.set_of_vlb[vlb].add(vid)
-        return self
-
-    def add_edge(self, eid, frm, to, elb):
-        """Add an edge to the graph."""
-        if (frm is self.vertices and
-                to in self.vertices and
-                to in self.vertices[frm].edges):
-            return self
-        if self.eid_auto_increment:
-            eid = next(self.counter)
-        self.vertices[frm].add_edge(eid, frm, to, elb)
-        self.set_of_elb[elb].add((frm, to))
-        if self.is_undirected:
-            self.vertices[to].add_edge(eid, to, frm, elb)
-            self.set_of_elb[elb].add((to, frm))
-        return self
-
-    def display(self):
-        """Display the graph as text."""
-        display_str = ''
-        print('t # {}'.format(self.gid))
-        for vid in self.vertices:
-            print('v {} {}'.format(vid, self.vertices[vid].vlb))
-            display_str += 'v {} {} '.format(vid, self.vertices[vid].vlb)
-        for frm in self.vertices:
-            edges = self.vertices[frm].edges
-            for to in edges:
-                if self.is_undirected:
-                    if frm < to:
-                        print('e {} {} {}'.format(frm, to, edges[to].elb))
-                        display_str += 'e {} {} {} '.format(
-                            frm, to, edges[to].elb)
-                else:
-                    print('e {} {} {}'.format(frm, to, edges[to].elb))
-                    display_str += 'e {} {} {}'.format(frm, to, edges[to].elb)
-        return display_str
-
-    def plot(self):
-        """Visualize the graph."""
-        try:
-            import networkx as nx
-            import matplotlib.pyplot as plt
-        except Exception as e:
-            print('Can not plot graph: {}'.format(e))
-            return
-        gnx = nx.Graph() if self.is_undirected else nx.DiGraph()
-        vlbs = {vid: v.vlb for vid, v in self.vertices.items()}
-        elbs = {}
-        for vid, v in self.vertices.items():
-            gnx.add_node(vid, label=v.vlb)
-        for vid, v in self.vertices.items():
-            for to, e in v.edges.items():
-                if (not self.is_undirected) or vid < to:
-                    gnx.add_edge(vid, to, label=e.elb)
-                    elbs[(vid, to)] = e.elb
-        fsize = (min(16, 1 * len(self.vertices)),
-                 min(16, 1 * len(self.vertices)))
-        plt.figure(3, figsize=fsize)
-        pos = nx.spectral_layout(gnx)
-        nx.draw_networkx(gnx, pos, arrows=True, with_labels=True, labels=vlbs)
-        nx.draw_networkx_edge_labels(gnx, pos, edge_labels=elbs)
-        plt.show()
-
-
-
-
 
 
 def record_timestamp(func):
@@ -504,23 +115,23 @@ class DFSedge(object):
         self.frm = frm
         self.to = to
         self.vevlb = vevlb
-"""
+
     def __eq__(self, other):
-       
+        """Check equivalence of DFSedge."""
         return (self.frm == other.frm and
                 self.to == other.to and
                 self.vevlb == other.vevlb)
 
     def __ne__(self, other):
-        
+        """Check if not equal."""
         return not self.__eq__(other)
 
     def __repr__(self):
-        
+        """Represent DFScode in string way."""
         return '(frm={}, to={}, vevlb={})'.format(
             self.frm, self.to, self.vevlb
         )
-"""
+
 
 class DFScode(list):
     """DFScode is a list of DFSedge."""
@@ -528,6 +139,32 @@ class DFScode(list):
     def __init__(self):
         """Initialize DFScode."""
         self.rmpath = list()
+
+    def __eq__(self, other):
+        """Check equivalence of DFScode."""
+        la, lb = len(self), len(other)
+        if la != lb:
+            return False
+        for i in range(la):
+            if self[i] != other[i]:
+                return False
+        return True
+
+    def __ne__(self, other):
+        """Check if not equal."""
+        return not self.__eq__(other)
+
+    def __repr__(self):
+        """Represent DFScode in string way."""
+        return ''.join(['[', ','.join(
+            [str(dfsedge) for dfsedge in self]), ']']
+        )
+
+    def push_back(self, frm, to, vevlb):
+        """Update DFScode by adding one edge."""
+        self.append(DFSedge(frm, to, vevlb))
+        return self
+
     def to_graph(self, gid=VACANT_GRAPH_ID, is_undirected=True):
         """Construct a graph according to the dfs code."""
         g = Graph(gid,
@@ -542,7 +179,12 @@ class DFScode(list):
             g.add_edge(AUTO_EDGE_ID, frm, to, elb)
         return g
 
+    def from_graph(self, g):
+        """Build DFScode from graph `g`."""
+        raise NotImplementedError('Not inplemented yet.')
+
     def build_rmpath(self):
+        """Build right most path."""
         self.rmpath = list()
         old_frm = None
         for i in range(len(self) - 1, -1, -1):
@@ -559,35 +201,6 @@ class DFScode(list):
             [dfsedge.frm for dfsedge in self] +
             [dfsedge.to for dfsedge in self]
         ))
-"""
-    def __eq__(self, other):
-        la, lb = len(self), len(other)
-        if la != lb:
-            return False
-        for i in range(la):
-            if self[i] != other[i]:
-                return False
-        return True
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __repr__(self):
-        return ''.join(['[', ','.join(
-            [str(dfsedge) for dfsedge in self]), ']']
-        )
-
-    def push_back(self, frm, to, vevlb):
-        self.append(DFSedge(frm, to, vevlb))
-        return self
-"""
-    
-"""
-    def from_graph(self, g):
-        
-        raise NotImplementedError('Not inplemented yet.')
-"""
-
 
 
 class PDFS(object):
@@ -610,11 +223,12 @@ class Projected(list):
     def __init__(self):
         """Initialize Projected instance."""
         super(Projected, self).__init__()
-"""
+
     def push_back(self, gid, edge, prev):
+        """Update this Projected instance."""
         self.append(PDFS(gid, edge, prev))
         return self
-"""
+
 
 class History(object):
     """History class."""
@@ -705,20 +319,23 @@ class gSpan(object):
     @record_timestamp
     def _read_graphs(self):
         self.graphs = dict()
-        ouput = output.split('\n')
+        outputlist=[]
+        outputlist = output.split('\n')
+
         tgraph, graph_cnt = None, 0
-        for i, line in enumerate(output):
+        for i, line in enumerate(outputlist):
             cols = line.split(' ')
+            
             if cols[0] == 't':
                 if tgraph is not None:
                     self.graphs[graph_cnt] = tgraph
                     graph_cnt += 1
                     tgraph = None
-            if cols[-1] == '-1' or graph_cnt >= self._max_ngraphs:
-                break
-            tgraph = Graph(graph_cnt,
-                           is_undirected=self._is_undirected,
-                           eid_auto_increment=True)
+                if cols[-1] == '-1' or graph_cnt >= self._max_ngraphs:
+                    break
+                tgraph = Graph(graph_cnt,
+                            is_undirected=self._is_undirected,
+                            eid_auto_increment=True)
             elif cols[0] == 'v':
                 tgraph.add_vertex(cols[1], cols[2])
             elif cols[0] == 'e':
@@ -726,7 +343,7 @@ class gSpan(object):
             # adapt to input files that do not end with 't # -1'
         if tgraph is not None:
             self.graphs[graph_cnt] = tgraph
-    return self
+        return self
 
     @record_timestamp
     def _generate_1edge_frequent_subgraphs(self):
@@ -1045,16 +662,391 @@ class gSpan(object):
 
 
 
+
+
+
+class Edge(object):
+    """Edge class."""
+
+    def __init__(self,
+                 eid=VACANT_EDGE_ID,
+                 frm=VACANT_VERTEX_ID,
+                 to=VACANT_VERTEX_ID,
+                 elb=VACANT_EDGE_LABEL):
+        """Initialize Edge instance.
+
+        Args:
+            eid: edge id.
+            frm: source vertex id.
+            to: destination vertex id.
+            elb: edge label.
+        """
+        self.eid = eid
+        self.frm = frm
+        self.to = to
+        self.elb = elb
+
+
+class Vertex(object):
+    """Vertex class."""
+
+    def __init__(self,
+                 vid=VACANT_VERTEX_ID,
+                 vlb=VACANT_VERTEX_LABEL):
+        """Initialize Vertex instance.
+
+        Args:
+            vid: id of this vertex.
+            vlb: label of this vertex.
+        """
+        self.vid = vid
+        self.vlb = vlb
+        self.edges = dict()
+
+    def add_edge(self, eid, frm, to, elb):
+        """Add an outgoing edge."""
+        self.edges[to] = Edge(eid, frm, to, elb)
+
+
+class Graph(object):
+    """Graph class."""
+
+    def __init__(self,
+                 gid=VACANT_GRAPH_ID,
+                 is_undirected=True,
+                 eid_auto_increment=True):
+        """Initialize Graph instance.
+
+        Args:
+            gid: id of this graph.
+            is_undirected: whether this graph is directed or not.
+            eid_auto_increment: whether to increment edge ids automatically.
+        """
+        self.gid = gid
+        self.is_undirected = is_undirected
+        self.vertices = dict()
+        self.set_of_elb = collections.defaultdict(set)
+        self.set_of_vlb = collections.defaultdict(set)
+        self.eid_auto_increment = eid_auto_increment
+        self.counter = itertools.count()
+
+    def get_num_vertices(self):
+        """Return number of vertices in the graph."""
+        return len(self.vertices)
+
+    def add_vertex(self, vid, vlb):
+        """Add a vertex to the graph."""
+        if vid in self.vertices:
+            return self
+        self.vertices[vid] = Vertex(vid, vlb)
+        self.set_of_vlb[vlb].add(vid)
+        return self
+
+    def add_edge(self, eid, frm, to, elb):
+        """Add an edge to the graph."""
+        if (frm is self.vertices and
+                to in self.vertices and
+                to in self.vertices[frm].edges):
+            return self
+        if self.eid_auto_increment:
+            eid = next(self.counter)
+        self.vertices[frm].add_edge(eid, frm, to, elb)
+        self.set_of_elb[elb].add((frm, to))
+        if self.is_undirected:
+            self.vertices[to].add_edge(eid, to, frm, elb)
+            self.set_of_elb[elb].add((to, frm))
+        return self
+
+    def display(self):
+        """Display the graph as text."""
+        display_str = ''
+        print('t # {}'.format(self.gid))
+        for vid in self.vertices:
+            print('v {} {}'.format(vid, self.vertices[vid].vlb))
+            display_str += 'v {} {} '.format(vid, self.vertices[vid].vlb)
+        for frm in self.vertices:
+            edges = self.vertices[frm].edges
+            for to in edges:
+                if self.is_undirected:
+                    if frm < to:
+                        print('e {} {} {}'.format(frm, to, edges[to].elb))
+                        display_str += 'e {} {} {} '.format(
+                            frm, to, edges[to].elb)
+                else:
+                    print('e {} {} {}'.format(frm, to, edges[to].elb))
+                    display_str += 'e {} {} {}'.format(frm, to, edges[to].elb)
+        return display_str
+
+    def plot(self):
+        """Visualize the graph."""
+        try:
+            import networkx as nx
+            import matplotlib.pyplot as plt
+        except Exception as e:
+            print('Can not plot graph: {}'.format(e))
+            return
+        gnx = nx.Graph() if self.is_undirected else nx.DiGraph()
+        vlbs = {vid: v.vlb for vid, v in self.vertices.items()}
+        elbs = {}
+        for vid, v in self.vertices.items():
+            gnx.add_node(vid, label=v.vlb)
+        for vid, v in self.vertices.items():
+            for to, e in v.edges.items():
+                if (not self.is_undirected) or vid < to:
+                    gnx.add_edge(vid, to, label=e.elb)
+                    elbs[(vid, to)] = e.elb
+        fsize = (min(16, 1 * len(self.vertices)),
+                 min(16, 1 * len(self.vertices)))
+        plt.figure(3, figsize=fsize)
+        pos = nx.spectral_layout(gnx)
+        nx.draw_networkx(gnx, pos, arrows=True, with_labels=True, labels=vlbs)
+        nx.draw_networkx_edge_labels(gnx, pos, edge_labels=elbs)
+        plt.show()
+
+
+
 def main(FLAGS=None):
     """Run gSpan."""
+    driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "wowhi223"))
+
+    def run_query(input_query):
+        # 세션을 열어줍니다.
+        with driver.session() as session: 
+        # 쿼리를 실행하고 그 결과를 results에 넣어줍니다.
+            results = session.run(
+                    input_query,
+                    parameters={}
+                    )
+            return results
+
+# 다음과 같이 쿼리하여, 노드, 엣지, 노드를 모두 가져온다.
+
+    input_query = """
+    MATCH (n1)-[e]->(n2)
+    RETURN n1, e, n2
+    """
+
+    results = run_query(input_query)
+# result => neo4j.BoltStatementResult object
+
+
+# 긁어온 쿼리를 다음의 방향성이 있는 그래프에 넣어준다.
+    DG = nx.DiGraph()
+
+    for i, path in enumerate(results):
+    # 앞서, 쿼리에서 변수명을 n1, n2, e, 로 가져왔으므로 각 값에 할당된 것을 변수에 추가로 넣어준다.
+        n1, n2, e = path['n1'], path['n2'], path['e']
+    # 그리고, 보통 노드의 경우는 id, labels, properties 로 나누어 정보가 저장되어 있다.
+    # 이를 가져오기 편하게, dictionary로 변경한다. 
+        n1_dict = {
+                'id': path['n1'].id, 
+                'labels':path['n1'].labels, 
+                'properties':dict(path['n1'])
+                }
+        n2_dict = {
+                'id': path['n2'].id, 
+                'labels':path['n2'].labels, 
+                'properties':dict(path['n2'])
+                }
+    # 마찬가지로, edge의 경우도 아래와 같이 정보를 저장한다.
+        e_dict = {
+                'id':path['e'].id, 
+                'type':path['e'].type, 
+                'properties':dict(path['e'])
+                }
+
+    # 해당 노드를 넣은 적이 없으면 넣는다.
+        if n1_dict['id'] not in DG:
+            DG.add_nodes_from([
+                    (n1_dict['id'], n1_dict)
+                    ])
+    # 해당 노드를 넣은 적이 없으면 넣는다.
+        if n2_dict['id'] not in DG:
+            DG.add_nodes_from([
+                    (n2_dict['id'], n2_dict)
+                    ])
+    # edge를 넣어준다. 노드의 경우 중복으로 들어갈 수 있으므로 중복을 체크해서 넣어주지만, 
+    # edge의 경우 중복을 체크하지 않아도 문제없다.
+        DG.add_edges_from([
+                (n1_dict['id'], n2_dict['id'], e_dict)
+                ])
+
+
+
+    NodeLabel=[]
+    NodeLabel.append([])
+    NodeLabel.append([])
+    EdgeLabel=[]
+    FromIdx=[]
+    ToIdx=[]
+    From=[]
+    To=[]
+    Name=[]
+    NodeLabelEncoded=[]
+    EdgeLabelEncoded=[]
+    
+    for n in DG.nodes(data=True):
+        if 'Person' in n[1]['labels']:
+            NodeLabel[1].append(n[1]['id'])
+            if n[1]['properties']['p_type'] == '개인':
+                Name.append(n[1]['properties']['name'])
+                NodeLabel[0].append('person')
+            else:
+                NodeLabel[0].append('person'+ n[1]['properties']['name'])
+        if 'Data' in n[1]['labels']:
+            Label = 'data'+ n[1]['properties']['name']
+            NodeLabel[0].append(Label)        
+            NodeLabel[1].append(n[1]['id'])
+
+        if 'Activity' in n[1]['labels']:
+            NodeLabel[0].append('activity'+n[1]['properties']['name'])        
+            NodeLabel[1].append(n[1]['id'])
+
+		
+
+    NodeLabelArray = array(NodeLabel[0])
+    NodeLabel_encoder = LabelEncoder()
+    NodeLabelEncoded = NodeLabel_encoder.fit_transform(NodeLabelArray)
+    count=0
+
+
+    NodeLabel1=[]
+
+# 이 전에서 라벨 인코딩 해야 했음
+    for name in Name:
+    
+        del NodeLabel1[:]
+        NodeLabel1.append([])
+        NodeLabel1.append([])
+        del EdgeLabel[:]
+        del FromIdx[:]
+        del ToIdx[:]
+        del From[:]
+        del To[:]
+        
+        n1_dict.clear()
+        n2_dict.clear()
+        e_dict.clear()
+    
+        input_query = "match (n1:Person{name:\""+name+"\"})match (n1)-[e1]-(n2)-[e2]-(n3) return n1,n2,n3,e1,e2"
+        results = run_query(input_query)
+        DG1 = nx.DiGraph()
+        
+        for i, path in enumerate(results):
+        
+    # 앞서, 쿼리에서 변수명을 n1, n2, e, 로 가져왔으므로 각 값에 할당된 것을 변수에 추가로 넣어준다.
+            n1, n2, n3, e1, e2 = path['n1'], path['n2'], path['n3'], path['e1'], path['e2']
+    # 그리고, 보통 노드의 경우는 id, labels, properties 로 나누어 정보가 저장되어 있다.
+    # 이를 가져오기 편하게, dictionary로 변경한다. 
+        
+            n1_dict = {
+                    'id': path['n1'].id, 
+                    'labels':path['n1'].labels, 
+                    'properties':dict(path['n1'])
+                    }
+            n2_dict = {
+                    'id': path['n2'].id, 
+                    'labels':path['n2'].labels, 
+                    'properties':dict(path['n2'])
+                    }
+            n3_dict = {
+                    'id': path['n3'].id, 
+                    'labels':path['n3'].labels, 
+                    'properties':dict(path['n3'])
+                    }
+    # 마찬가지로, edge의 경우도 아래와 같이 정보를 저장한다.
+            e1_dict = {
+                    'id':path['e1'].id, 
+                    'type':path['e1'].type, 
+                    'properties':dict(path['e1'])
+                    }
+            e2_dict = {
+                    'id':path['e2'].id, 
+                    'type':path['e2'].type, 
+                    'properties':dict(path['e2'])
+                    }
+    # print(e_dict)
+    # 해당 노드를 넣은 적이 없으면 넣는다.
+            if n1_dict['id'] not in DG1:
+                DG1.add_nodes_from([
+                        (n1_dict['id'], n1_dict)
+                        ])
+    # 해당 노드를 넣은 적이 없으면 넣는다.
+            if n2_dict['id'] not in DG1:
+                DG1.add_nodes_from([
+                        (n2_dict['id'], n2_dict)
+                        ])
+            if n3_dict['id'] not in DG1:
+                DG1.add_nodes_from([
+                        (n3_dict['id'], n3_dict)
+                        ])
+    # edge를 넣어준다. 노드의 경우 중복으로 들어갈 수 있으므로 중복을 체크해서 넣어주지만, 
+    # edge의 경우 중복을 체크하지 않아도 문제없다.
+            DG1.add_edges_from([
+                    (n1_dict['id'], n2_dict['id'], e1_dict)
+                    ])
+            
+            DG1.add_edges_from([
+                    (n2_dict['id'], n3_dict['id'], e2_dict)
+                    ])
+
+    
+        for n in DG1.nodes(data=True):
+            
+            if 'Data' in n[1]['labels']:
+            
+                Label = 'data'+ n[1]['properties']['name']
+                
+
+                NodeLabel1[0].append(NodeLabelEncoded[NodeLabel[0].index(Label)]+2)        
+                NodeLabel1[1].append(n[1]['id'])
+                
+            if 'Activity' in n[1]['labels']:
+                Label = 'activity'+n[1]['properties']['name']
+                NodeLabel1[0].append(NodeLabelEncoded[NodeLabel[0].index(Label)]+2)        
+                NodeLabel1[1].append(n[1]['id'])
+
+            if 'Person' in n[1]['labels']:
+                if n[1]['properties']['p_type'] == '개인':
+                    Label = 'person'
+                else:
+                    Label = 'person' + n[1]['properties']['name']
+          
+                NodeLabel1[0].append(NodeLabelEncoded[NodeLabel[0].index(Label)]+2)
+                NodeLabel1[1].append(n[1]['id'])
+    
+  
+        for e in DG1.edges(data=True):
+        
+            FromIdx.append(NodeLabel1[1].index(e[1]))
+            ToIdx.append(NodeLabel1[1].index(e[0]))
+            EdgeLabel.append(e[2]['type'])
+   
+
+
+        
+        NodeLen = len(NodeLabel1[0])
+        EdgeLen = len(EdgeLabel)
+    
+        EdgeLabelArray = array(EdgeLabel)
+        EdgeLabel_encoder = LabelEncoder()    
+        EdgeLabelEncoded = EdgeLabel_encoder.fit_transform(EdgeLabelArray)
+    
+
+        global output
+        output = output+"t # "+str(count)+"\n"
+        for i in range(NodeLen):
+            output = output + "v " + str(i) + " " + str(NodeLabel1[0][i])+"\n"
+        for i in range(EdgeLen):
+            output = output + "e " + str(FromIdx[i]) + " " + str(ToIdx[i]) + " " + str(EdgeLabelEncoded[i]+2)+"\n"
+        
+        count+=1
+        DG1.clear()
+    output = output + "t # -1"
+
 
     if FLAGS is None:
         FLAGS, _ = parser.parse_known_args(args=sys.argv[1:])
-    """
-    if not os.path.exists(FLAGS.database_file_name):
-        print('{} does not exist.'.format(FLAGS.database_file_name))
-        sys.exit()
-    """
     gs = gSpan(
         #database_file_name=FLAGS.database_file_name,
         min_support=FLAGS.min_support,
@@ -1074,5 +1066,4 @@ def main(FLAGS=None):
 
 if __name__ == '__main__':
     main()
-    
     sys.exit(main())
