@@ -54,10 +54,11 @@ if __name__ == '__main__':
     gs = main()
 
 
-    print(edgeDict)
-    print(allDict)
-    print(ver2Dict)
-    print(instDict)
+    global allDict
+    global edgeDict
+    global instDict
+    global dataDict
+    global actDict
     # Create an empty list 
     row_list =[] 
       

@@ -18,6 +18,12 @@ import pandas as pd
 from neo4j import GraphDatabase
 
 # generate input data start
+global allDict
+global edgeDict
+global instDict
+global dataDict
+global ver2Dict
+global actDict
 
 def search_personNode(tx):
     personNodes = tx.run("Match (p:Person) where p.p_type = '기관' return DISTINCT p.name")
@@ -104,7 +110,7 @@ def generateInput():
     global edgeDict
     global instDict
     global dataDict
-    
+    global actDict
     
     driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "wowhi223"))
     with driver.session() as session:
