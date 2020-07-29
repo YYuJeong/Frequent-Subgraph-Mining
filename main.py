@@ -1022,3 +1022,27 @@ if __name__ == '__main__':
     main()
     
     #sys.exit(main())
+   gs = main()
+
+    # Create an empty list 
+   row_list =[] 
+      
+    # Iterate over each row 
+   for index, rows in gs._report_df.iterrows(): 
+        # Create list for the current row 
+       my_list =[rows.support, rows.vertex, rows.link, rows.num_vert] 
+          
+        # append the list to the final list 
+       row_list.append(my_list) 
+       
+   #Generate ouputTable
+   edgeInfo = row_list[1]  #example
+   
+   #Extract row's information
+   support = edgeInfo[0]
+   nodes = edgeInfo[1]
+   edges = edgeInfo[2]
+   numVer = edgeInfo[3]
+   
+   #Create table output
+   
