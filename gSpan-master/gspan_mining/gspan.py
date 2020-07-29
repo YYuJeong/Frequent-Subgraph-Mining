@@ -9,10 +9,10 @@ import copy
 import itertools
 import time
 
-from .graph import AUTO_EDGE_ID
-from .graph import Graph
-from .graph import VACANT_GRAPH_ID
-from .graph import VACANT_VERTEX_LABEL
+from graph import AUTO_EDGE_ID
+from graph import Graph
+from graph import VACANT_GRAPH_ID
+from graph import VACANT_VERTEX_LABEL
 
 import pandas as pd
 from neo4j import GraphDatabase
@@ -100,6 +100,12 @@ def get_allGraphs(tx, name, allDict, edgeDict):
     return allnode2Dic , graph2Dic
 
 def generateInput():
+    global allDict
+    global edgeDict
+    global instDict
+    global dataDict
+    
+    
     driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "wowhi223"))
     with driver.session() as session:
          
@@ -160,7 +166,7 @@ def generateInput():
     return allGraph2Dic
 
 def numberingIndex(graph2Dic):
-
+    global ver2Dict
     ver2Dict = {k: v for v, k in enumerate(graph2Dic[0])}
     
     del graph2Dic[0]
@@ -517,7 +523,8 @@ class gSpan(object):
             return
         g = self._DFScode.to_graph(gid=next(self._counter),
                                    is_undirected=self._is_undirected)
-        display_str = g.display()
+        #display_str = g.display()
+        nodeInfo, linkInfo = g.display()
         print('\nSupport: {}'.format(self._support))
 
         # Add some report info to pandas dataframe "self._report_df".
@@ -525,7 +532,9 @@ class gSpan(object):
             pd.DataFrame(
                 {
                     'support': [self._support],
-                    'description': [display_str],
+                    #'description': [display_str],
+                    'vertex': [nodeInfo],
+                    'link' : [linkInfo],
                     'num_vert': self._DFScode.get_num_vertices()
                 },
                 index=[int(repr(self._counter)[6:-1])]

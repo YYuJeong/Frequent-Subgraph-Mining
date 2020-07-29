@@ -110,8 +110,11 @@ class Graph(object):
     def display(self):
         """Display the graph as text."""
         display_str = ''
+        linkInfo = []
+        nodeInfo = []
         print('t # {}'.format(self.gid))
         for vid in self.vertices:
+            nodeInfo.append([vid, self.vertices[vid].vlb])
             print('v {} {}'.format(vid, self.vertices[vid].vlb))
             display_str += 'v {} {} '.format(vid, self.vertices[vid].vlb)
         for frm in self.vertices:
@@ -119,13 +122,17 @@ class Graph(object):
             for to in edges:
                 if self.is_undirected:
                     if frm < to:
+                        linkInfo.append([ self.vertices[frm].vlb, self.vertices[to].vlb, edges[to].elb])
+
                         print('e {} {} {}'.format(frm, to, edges[to].elb))
                         display_str += 'e {} {} {} '.format(
                             frm, to, edges[to].elb)
                 else:
+                    linkInfo.append([self.vertices[frm].vlb, self.vertices[to].vlb, edges[to].elb])
+
                     print('e {} {} {}'.format(frm, to, edges[to].elb))
                     display_str += 'e {} {} {}'.format(frm, to, edges[to].elb)
-        return display_str
+        return nodeInfo, linkInfo
 
     def plot(self):
         """Visualize the graph."""
