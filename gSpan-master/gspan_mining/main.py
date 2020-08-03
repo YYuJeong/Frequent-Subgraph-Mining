@@ -4,8 +4,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-
-
+from functools import reduce
+import operator
 import numpy as np
 
 import codecs
@@ -29,6 +29,9 @@ global instDict
 global dataDict
 global ver2Dict
 global actDict
+
+global driver
+
 
 def search_personNode(tx):
     personNodes = tx.run("Match (p:Person) where p.p_type = '기관' return DISTINCT p.name")
@@ -116,8 +119,10 @@ def generateInput():
     global instDict
     global dataDict
     global actDict
+    global driver
     
-    driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "wowhi223"))
+    driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "wowhi223"))    
+
     with driver.session() as session:
          
          # All personNodes to dict 
@@ -817,6 +822,37 @@ def main(FLAGS=None):
     gs.time_stats()
     return gs
 
+def uploadFSMresults(tx, create):
+    tx.run(create)
+    
+def merge_data(tx):
+    tx.run("MATCH (d:Data) "
+           "WITH d.name as name, d.value as value, d.file_path as file_path, d.origin as origin, COLLECT(d) AS ns "
+           "WHERE size(ns) > 1 "
+           "CALL apoc.refactor.mergeNodes(ns) YIELD node "
+           "RETURN node")
+    
+def merge_person(tx):
+   tx.run("MATCH (p:Person) "
+          "WITH toLower(p.name) as name, p.pid as pid, p.p_type as p_type, COLLECT(p) AS ns "
+          "WHERE size(ns) > 1 AND NOT (p.p_type = '기관')"
+          "CALL apoc.refactor.mergeNodes(ns) YIELD node "
+          "RETURN node" )
+
+
+def merge_activity(tx):
+   tx.run("MATCH (ac:Activity) "
+          "WITH ac.name as name, COLLECT(ac) AS ns "
+          "WHERE size(ns) > 1 "
+          "CALL apoc.refactor.mergeNodes(ns) YIELD node "
+          "RETURN node" )
+    
+def delete_duplRelation(tx):
+    tx.run("start r=relationship(*) "
+           "match (s)-[r]->(e) "
+           "with s,e,type(r) as typ, tail(collect(r)) as coll "
+           "foreach(x in coll | delete x) ")
+
 
 if __name__ == '__main__':
     gs = main()
@@ -827,6 +863,7 @@ if __name__ == '__main__':
     global instDict
     global dataDict
     global actDict
+    global driver
     # Create an empty list 
 
     row_list =[] 
@@ -840,22 +877,19 @@ if __name__ == '__main__':
         row_list.append(my_list) 
         
     #Generate ouputTable
-   # edgeInfo = row_list[38]  #example
+    supports = []
     final = []
+    dic2graphs = []
     for i in range(len(row_list)):
         print("result graph #" , i)
         edgeInfo = row_list[i]
     #Extract row's information
-        support = edgeInfo[0]
+        supports.append(edgeInfo[0])
         nodes = edgeInfo[1]
         edges = edgeInfo[2]
         numVer = edgeInfo[3]
-       
-    #Create table output
-   
-    #Create cypher output
-    
-    #decode dict to node
+
+        #decode dict to node
         dic2graph = []
         for edge in edges:
             #print(edge)
@@ -865,7 +899,10 @@ if __name__ == '__main__':
             dic2node.append(list(edgeDict.keys())[list(edgeDict.values()).index(edge[2])])          
             #(dic2node)
             dic2graph.append(dic2node)
-    
+        dic2graphs.append(dic2graph)
+
+    fsmResults = []
+    for dic2graph in dic2graphs:
         #look up original node
         fsmResult = []
         for nodes in dic2graph:
@@ -884,9 +921,14 @@ if __name__ == '__main__':
                 dic2node.append((node, label))
             #print(dic2node)
             fsmResult.append(dic2node)
-
+        fsmResults.append(fsmResult)
+     
+    searchesFinal = []
+    returnsFinal = []
+    createsFinal = []
+    for fsmResult in fsmResults:  
         #create cypher by activity type
-        rets = []
+        returns = []
         searches = []
         creates = [] #결과 그래프 하나 당 사이퍼들
         for result in fsmResult:
@@ -907,14 +949,14 @@ if __name__ == '__main__':
             elif node1[1] == 'Data': ret1 = 'd'
             elif node1[1] == '개인' : ret1 = 'p'
             else: ret1 = 'p'
-            print(node1[1])
+           # print(node1[1])
             
             if node2[1] == 'Activity' : ret2 = 'ac'
             elif node2[1] == 'Data': ret2 = 'd'
             elif node2[1] == '개인' : ret2 = 'p'
             else: ret2 = 'p'
-            print(node2[1])
-            print(ret1, ret2)
+           # print(node2[1])
+           # print(ret1, ret2)
             ret.append(ret1)
             ret.append(ret2)
             if node2[0] == '생성': #두번째 노드가 
@@ -977,20 +1019,42 @@ if __name__ == '__main__':
                     search = ("MATCH (p:Person), (ac:Activity) "
                               "WHERE p.name =  " + "'" + node1[0] +"' and p.graph = " + str(i) +
                               " and ac.name = "+ "'" + node2[0] + "' and ac.graph = " + str(i))             
-            
-            #print(cypher)
-            #print(search)
+
             searches.append(search)
             creates.append(create)
-            rets.append(ret)
-
-        print(creates)
-        print(searches)   
-        rets = list(set(np.array(rets).flatten().tolist()))
-        print(rets)
-        final.append([creates, searches, rets])
+            returns.append(ret)
+            
+        print(searches)
+        searchesFinal.append(searches)
+        
+        returns = list(set(np.array(returns).flatten().tolist()))
+        returnCypher = 'RETURN '
+        for ret in returns:
+            returnCypher = returnCypher + ret + ', '
+        returnCypher = returnCypher[:len(returnCypher)-2]      
+        returnsFinal.append(returnCypher)
+        
+        
+        createsFinal.append(creates)
+        
+        
+    createResult = reduce(operator.concat, createsFinal)
 
         
         
+    '''    
+    #upload FSM result graphs to NEO4j
+    driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "wowhi223"))    
+
+    with driver.session() as session:
+        for create in createResult:
+            #print(create)
+            session.write_transaction(uploadFSMresults, create)
+            
+        session.read_transaction(merge_data)
+        session.read_transaction(merge_person)
+        #session.read_transaction(merge_activity)
+        session.read_transaction(delete_duplRelation)
+    ''' 
         
         
