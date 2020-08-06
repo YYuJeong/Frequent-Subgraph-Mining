@@ -867,15 +867,50 @@ if __name__ == '__main__':
     # Create an empty list 
 
     row_list =[] 
-      
+    links = []
+    indexs = []
     # Iterate over each row 
     for index, rows in gs._report_df.iterrows(): 
         # Create list for the current row 
         my_list =[rows.support, rows.vertex, rows.link, rows.num_vert] 
-          
         # append the list to the final list 
         row_list.append(my_list) 
-        
+    
+        links.append(rows.link)
+        indexs.append(index)
+    
+    # Extract maximum graph
+    linksFlatten = []
+    for link in links:
+        for l in link:
+            linksFlatten.append(l)
+   
+    linkSet = [list(t) for t in set(tuple(element) for element in linksFlatten)]
+    link2Dict = {tuple(k): v for v, k in enumerate(linkSet)}
+
+    # Convert edge to dictionary
+    edge2Dict = []
+    for link in links:
+        l2d = []
+        for l in link:
+            l2d.append(link2Dict[tuple(l)])
+        edge2Dict.append(l2d)
+    
+    # Check small graph
+    delInd = []
+    for j, ed in enumerate(edge2Dict):
+        g = ed
+        for i, e in enumerate(edge2Dict[j+1:], start=j+1):
+            if set(g).issubset(e):
+                delInd.append(j)
+                break
+    
+    # delete small graph
+    for index in sorted(delInd, reverse=True):
+        del links[index]
+        del indexs[index]
+        del row_list[index]
+
     #Generate ouputTable
     supports = []
     final = []
@@ -900,7 +935,7 @@ if __name__ == '__main__':
             #(dic2node)
             dic2graph.append(dic2node)
         dic2graphs.append(dic2graph)
-
+    
     fsmResults = []
     for dic2graph in dic2graphs:
         #look up original node
@@ -1042,7 +1077,7 @@ if __name__ == '__main__':
 
         
         
-    '''    
+    '''
     #upload FSM result graphs to NEO4j
     driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "wowhi223"))    
 
@@ -1055,6 +1090,7 @@ if __name__ == '__main__':
         session.read_transaction(merge_person)
         #session.read_transaction(merge_activity)
         session.read_transaction(delete_duplRelation)
+        session.close()
     ''' 
         
         
