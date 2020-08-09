@@ -879,10 +879,9 @@ if __name__ == '__main__':
     for index, rows in gs._report_df.iterrows(): 
         # Create list for the current row 
         my_list =[rows.support, rows.vertex, rows.link, rows.num_vert] 
-          
         # append the list to the final list 
         row_list.append(my_list) 
-        
+
         links.append(rows.link)
         indexs.append(index)
     
@@ -1101,6 +1100,7 @@ if __name__ == '__main__':
             cyphers = cyphers + searchesFinal[i][j] + ' '
         cypherFinal.append(cyphers + returnsFinal[i])
         
+<<<<<<< HEAD
 
     outTable = ''        
     for i in range(len(cypherFinal)):
@@ -1113,6 +1113,10 @@ if __name__ == '__main__':
     outTable = outTable + '|' + sup
     #print(outTable)
     
+=======
+        
+    '''
+>>>>>>> 2fc94fe3e89c666e31400f57973e52129176d690
     #upload FSM result graphs to NEO4j
     driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "wowhi223"))    
 
@@ -1125,7 +1129,13 @@ if __name__ == '__main__':
         session.read_transaction(merge_person)
         session.read_transaction(merge_activity)
         session.read_transaction(delete_duplRelation)
+<<<<<<< HEAD
     
     driver.close()
 
+=======
+        session.close()
+    ''' 
+        
+>>>>>>> 2fc94fe3e89c666e31400f57973e52129176d690
         
