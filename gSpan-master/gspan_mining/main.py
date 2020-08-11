@@ -355,6 +355,20 @@ if __name__ == '__main__':
     links = []
     indexs = []
 
+    for i in range(len(gs)):
+        s = gs.loc[i]['support']
+        v = gs.loc[i]['vertex']
+        v = list(map(list, v))
+        v = [list( map(int,i) ) for i in v]
+        l = gs.loc[i]['link']
+        l = [list( map(int,i) ) for i in l]
+        m = gs.loc[i]['num_vert']
+        my_list = [s, v, l, m]
+        row_list.append(my_list)
+        
+        links.append(l)
+        indexs.append(i)
+    '''
     # Iterate over each row 
     for index, rows in gs.iterrows(): 
         # Create list for the current row 
@@ -364,7 +378,7 @@ if __name__ == '__main__':
 
         links.append(rows.link)
         indexs.append(index)
-    
+    '''
     # Extract maximum graph
     linksFlatten = []
     for link in links:

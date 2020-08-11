@@ -854,6 +854,10 @@ if __name__ == '__main__':
     # Iterate over each row 
     for index, rows in gs._report_df.iterrows(): 
         # Create list for the current row 
+        print(rows.support)
+        print(rows.vertex)
+        print(rows.link)
+        print(rows.num_vert)
         my_list =[rows.support, rows.vertex, rows.link, rows.num_vert] 
         # append the list to the final list 
         row_list.append(my_list) 
