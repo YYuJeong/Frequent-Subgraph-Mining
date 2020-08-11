@@ -1,7 +1,15 @@
-"""Implementation of gSpan."""
+"""The main program that runs gSpan."""
+# -*- coding=utf-8 -*-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+
+from neo4j import GraphDatabase
+import pandas as pd
+
+import operator
+
+import numpy as np
 
 import codecs
 import collections
@@ -9,13 +17,12 @@ import copy
 import itertools
 import time
 
+
+
 from graph import AUTO_EDGE_ID
 from graph import Graph
 from graph import VACANT_GRAPH_ID
 from graph import VACANT_VERTEX_LABEL
-
-import pandas as pd
-from neo4j import GraphDatabase
 
 # generate input data start
 global allDict
@@ -24,6 +31,7 @@ global instDict
 global dataDict
 global ver2Dict
 global actDict
+
 
 def search_personNode(tx):
     personNodes = tx.run("Match (p:Person) where p.p_type = '기관' return DISTINCT p.name")
@@ -39,10 +47,11 @@ def search_dataNode(tx):
     
     return dataNodes 
 
+
 def get_allGraphs(tx, name, allDict, edgeDict):
-    allGraphs = tx.run("MATCH p = ({name : $name})-[*]-(connected) "
-                       "WHERE length(nodes(p)) = length(apoc.coll.toSet(nodes(p)))"
-                       "RETURN p", name = name).values()
+    allGraphs = tx.run("MATCH p = ({name : '"+name+"'})-[*]-(connected) "
+                       "WHERE size(nodes(p)) = size(apoc.coll.toSet(nodes(p)))"
+                       "RETURN p").values()
     '''
     ag = tx.run("""MATCH (p:Person {name: "강민석"}) 
                     CALL apoc.path.subgraphAll(p, {
@@ -51,7 +60,6 @@ def get_allGraphs(tx, name, allDict, edgeDict):
                     YIELD nodes, relationships
                     RETURN nodes, relationships;""")
     '''
-    
     # separate path to [node, node]
 
     prov = []
@@ -81,7 +89,7 @@ def get_allGraphs(tx, name, allDict, edgeDict):
             allnode2Dic.append(allDict[n.get('name')])
             
     allnode2Dic = list(set(allnode2Dic))        
-            
+       
     # encoding graph node to dictionary
     graph2Dic = []
     for gl in prov:
@@ -102,7 +110,6 @@ def get_allGraphs(tx, name, allDict, edgeDict):
                 node2Dic.append(edgeDict[g])
         
         graph2Dic.append(node2Dic)
-
     return allnode2Dic , graph2Dic
 
 def generateInput():
@@ -111,19 +118,20 @@ def generateInput():
     global instDict
     global dataDict
     global actDict
-    
-    driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "wowhi223"))
+
+
+    driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "wowhi223"), encrypted=False)
     with driver.session() as session:
-         
          # All personNodes to dict 
          personNodes = session.read_transaction(search_personNode)
          perNodes = session.read_transaction(search_perNode)
     
-         records = []
+         personrecords = []
          for personNode in perNodes:
-             records.append(personNode["p.name"])
-         personDict = {k: v for v, k in enumerate(records)}
-    
+             personrecords.append(personNode["p.name"])
+
+         personDict = {k: v for v, k in enumerate(personrecords)}
+
          records = []
         
          for personNode in personNodes:
@@ -151,7 +159,7 @@ def generateInput():
     
          perDict = {'개인': len(dataDict) +len(instDict)+len(actDict)+1 }
          allDict = {**instDict,**dataDict, **actDict, **perDict}
-         print(allDict)
+
          
          #get all graphs 
          ''' 
@@ -164,13 +172,16 @@ def generateInput():
          
          allGraph2Dic = []
          for key in personDict:
-             
              allGraph2Dic.append(list(session.read_transaction(get_allGraphs, key, allDict, edgeDict)))
-         
-      
-    driver.close()
-    return allGraph2Dic
 
+      
+
+    for i in range(len(allGraph2Dic)):
+        allGraph2Dic[i][1] = [list(t) for t in set(tuple(element) for element in allGraph2Dic[i][1])]
+
+    print(allGraph2Dic)
+    return allGraph2Dic
+    driver.close()
 def numberingIndex(graph2Dic):
     global ver2Dict
     ver2Dict = {k: v for v, k in enumerate(graph2Dic[0])}
@@ -354,9 +365,10 @@ class gSpan(object):
 
     def __init__(self,
                  database_file_name,
-                 min_support=10,
-                 min_num_vertices=1,
+                 min_support=1,
+                 min_num_vertices=2,
                  max_num_vertices=float('inf'),
+                 #max_num_vertices=,
                  max_ngraphs=float('inf'),
                  is_undirected=True,
                  verbose=False,
@@ -382,9 +394,11 @@ class gSpan(object):
         self._where = where
         self.timestamps = dict()
         if self._max_num_vertices < self._min_num_vertices:
+            '''
             print('Max number of vertices can not be smaller than '
                   'min number of that.\n'
                   'Set max_num_vertices = min_num_vertices.')
+            '''
             self._max_num_vertices = self._min_num_vertices
         self._report_df = pd.DataFrame()
 
@@ -397,12 +411,12 @@ class gSpan(object):
                 self.timestamps[fn + '_out'] - self.timestamps[fn + '_in'],
                 2
             )
-
+        '''
         print('Read:\t{} s'.format(time_deltas['_read_graphs']))
         print('Mine:\t{} s'.format(
             time_deltas['run'] - time_deltas['_read_graphs']))
         print('Total:\t{} s'.format(time_deltas['run']))
-
+        '''
         return self
 
     @record_timestamp
@@ -435,32 +449,9 @@ class gSpan(object):
                 self.graphs[graph_cnt] = tgraph
                 tgraph.display()
                 graph_cnt += 1
-            
+   
         return self
-        '''self.graphs = dict()
-        with codecs.open(self._database_file_name, 'r', 'utf-8') as f:
-            lines = [line.strip() for line in f.readlines()]
-            tgraph, graph_cnt = None, 0
-            for i, line in enumerate(lines):
-                cols = line.split(' ')
-                if cols[0] == 't':
-                    if tgraph is not None:
-                        self.graphs[graph_cnt] = tgraph
-                        graph_cnt += 1
-                        tgraph = None
-                    if cols[-1] == '-1' or graph_cnt >= self._max_ngraphs:
-                        break
-                    tgraph = Graph(graph_cnt,
-                                   is_undirected=self._is_undirected,
-                                   eid_auto_increment=True)
-                elif cols[0] == 'v':
-                    tgraph.add_vertex(cols[1], cols[2])
-                elif cols[0] == 'e':
-                    tgraph.add_edge(AUTO_EDGE_ID, cols[1], cols[2], cols[3])
-            # adapt to input files that do not end with 't # -1'
-            if tgraph is not None:
-                self.graphs[graph_cnt] = tgraph
-        return self''' # 본래 있었던 파일 읽어오는 코드
+
 
     @record_timestamp
     def _generate_1edge_frequent_subgraphs(self):
@@ -514,14 +505,16 @@ class gSpan(object):
             self._DFScode.append(DFSedge(0, 1, vevlb))
             self._subgraph_mining(projected)
             self._DFScode.pop()
+        
+
 
     def _get_support(self, projected):
         return len(set([pdfs.gid for pdfs in projected]))
 
     def _report_size1(self, g, support):
         g.display()
-        print('\nSupport: {}'.format(support))
-        print('\n-----------------\n')
+        #print('\nSupport: {}'.format(support))
+        #print('\n-----------------\n')
 
     def _report(self, projected):
         self._frequent_subgraphs.append(copy.copy(self._DFScode))
@@ -531,7 +524,7 @@ class gSpan(object):
                                    is_undirected=self._is_undirected)
         #display_str = g.display()
         nodeInfo, linkInfo = g.display()
-        print('\nSupport: {}'.format(self._support))
+        #print('\nSupport: {}'.format(self._support))
 
         # Add some report info to pandas dataframe "self._report_df".
         self._report_df = self._report_df.append(
@@ -546,11 +539,10 @@ class gSpan(object):
                 index=[int(repr(self._counter)[6:-1])]
             )
         )
-        if self._visualize:
-            g.plot()
+
         if self._where:
             print('where: {}'.format(list(set([p.gid for p in projected]))))
-        print('\n-----------------\n')
+        #print('\n-----------------\n')
 
     def _get_forward_root_edges(self, g, frm):
         result = []
@@ -779,3 +771,356 @@ class gSpan(object):
             self._DFScode.pop()
 
         return self
+
+
+def main(FLAGS=None):
+    """Run gSpan."""
+    '''
+    if FLAGS is None:
+        FLAGS, _ = parser.parse_known_args(args=sys.argv[1:])
+
+    if not os.path.exists(FLAGS.database_file_name):
+        print('{} does not exist.'.format(FLAGS.database_file_name))
+        sys.exit()
+    '''    
+    gs = gSpan(
+        #database_file_name=FLAGS.database_file_name,
+        database_file_name='../gSpan-master/graphdata/neo4j.txt',
+        
+        #min_support=FLAGS.min_support,
+        min_support=2,
+        
+#        min_num_vertices=FLAGS.lower_bound_of_num_vertices,
+#        max_num_vertices=FLAGS.upper_bound_of_num_vertices,
+
+#        max_ngraphs=FLAGS.num_graphs,
+        is_undirected=False,
+#        verbose=FLAGS.verbose,
+#        visualize=FLAGS.plot,
+#        where=FLAGS.where
+    )
+
+    gs.run()
+    gs.time_stats()
+    return gs
+
+def uploadFSMresults(tx, create):
+    tx.run(create)
+    
+def merge_data(tx):
+    tx.run("MATCH (d:Data) "
+           "where exists(d.graph) "
+           "WITH d.name as name, d.graph as graph, COLLECT(d) AS ns "
+           "WHERE size(ns) > 1 "
+           "CALL apoc.refactor.mergeNodes(ns) YIELD node "
+           "RETURN node")
+    
+def merge_person(tx):
+   tx.run("MATCH (p:Person) "
+          "where exists(p.graph) "
+          "WITH toLower(p.name) as name, p.graph as graph, COLLECT(p) AS ns "
+          "WHERE size(ns) > 1 "
+          "CALL apoc.refactor.mergeNodes(ns) YIELD node "
+          "RETURN node" )
+def merge_activity(tx):
+   tx.run("MATCH (ac:Activity) "
+          "where exists(ac.graph) "
+          "WITH ac.name as name, ac.graph as graph, COLLECT(ac) AS ns "
+          "WHERE size(ns) > 1 "
+          "CALL apoc.refactor.mergeNodes(ns) YIELD node "
+          "RETURN node" )
+   
+def delete_duplRelation(tx):
+    tx.run("Match (s)-[r]->(e) "
+           "with s,e,type(r) as typ, tail(collect(r)) as coll "
+           "foreach(x in coll | delete x) ")
+
+if __name__ == '__main__':
+    gs = main()
+
+    global allDict
+    global edgeDict
+    global instDict
+    global dataDict
+    global actDict
+
+    global driver
+    # Create an empty list 
+
+    row_list =[] 
+    links = []
+    indexs = []
+    
+    # Iterate over each row 
+    for index, rows in gs._report_df.iterrows(): 
+        # Create list for the current row 
+        my_list =[rows.support, rows.vertex, rows.link, rows.num_vert] 
+        # append the list to the final list 
+        row_list.append(my_list) 
+
+        links.append(rows.link)
+        indexs.append(index)
+    print(links)
+    print(indexs)
+    print(row_list)    
+        
+        
+        
+
+    # Extract maximum graph
+    linksFlatten = []
+    for link in links:
+        for l in link:
+            linksFlatten.append(l)
+   
+    linkSet = [list(t) for t in set(tuple(element) for element in linksFlatten)]
+    link2Dict = {tuple(k): v for v, k in enumerate(linkSet)}
+
+    # Convert edge to dictionary
+    edge2Dict = []
+    for link in links:
+        l2d = []
+        for l in link:
+            l2d.append(link2Dict[tuple(l)])
+        edge2Dict.append(l2d)
+    
+    # Check small graph
+    delInd = []
+    for j, ed in enumerate(edge2Dict):
+        g = ed
+        for i, e in enumerate(edge2Dict[j+1:], start=j+1):
+            if set(g).issubset(e):
+                delInd.append(j)
+                break
+    
+    # delete small graph
+    for index in sorted(delInd, reverse=True):
+        del links[index]
+        del indexs[index]
+        del row_list[index]
+ 
+    #Generate ouputTable
+    supports = []
+    final = []
+    dic2graphs = []
+    for i in range(len(row_list)):
+        #print("result graph #" , i)
+        edgeInfo = row_list[i]
+    #Extract row's information
+        supports.append(edgeInfo[0])
+        nodes = edgeInfo[1]
+        edges = edgeInfo[2]
+        numVer = edgeInfo[3]
+
+        #decode dict to node
+        dic2graph = []
+        for edge in edges:
+            #print(edge)
+            dic2node = []
+            dic2node.append(list(allDict.keys())[list(allDict.values()).index(edge[0])])
+            dic2node.append(list(allDict.keys())[list(allDict.values()).index(edge[1])])
+            dic2node.append(list(edgeDict.keys())[list(edgeDict.values()).index(edge[2])])          
+            #(dic2node)
+            dic2graph.append(dic2node)
+        dic2graphs.append(dic2graph)
+    
+    fsmResults = []
+    for dic2graph in dic2graphs:
+        #look up original node
+        fsmResult = []
+        for nodes in dic2graph:
+            dic2node = []
+            for node in nodes:
+                if instDict.get(node) != None:
+                    label = '기관'
+                elif dataDict.get(node) != None:
+                    label = 'Data'
+                elif actDict.get(node) != None:
+                    label = 'Activity'
+                elif edgeDict.get(node) != None:
+                    label = 'Edge'
+                else:
+                    label = '개인'
+                dic2node.append((node, label))
+            #print(dic2node)
+            fsmResult.append(dic2node)
+        fsmResults.append(fsmResult)
+     
+    searchesFinal = []
+    returnsFinal = []
+    createsFinal = []
+    nodeInfoFinal = []
+    for i in range(len(fsmResults)):  
+        #create cypher by activity type
+        returns = []
+        searches = []
+        creates = [] #결과 그래프 하나 당 사이퍼들
+        nodes = []
+        print(fsmResults[i])
+        for index, result in enumerate(fsmResults[i]):
+            #print(index)
+            #print("result: ", result)
+            if result[0][1] == 'Activity':
+                node2 = result[0]
+                node1 = result[1]
+            else:
+                node1 = result[0]
+                node2 = result[1]
+            edge = result[2]
+            create = ''
+            search = ''
+            '''
+            if node1[1] == 'Activity' : ret1 = 'ac'
+            elif node1[1] == 'Data': ret1 = 'd'
+            elif node1[1] == '개인' : ret1 = 'p'
+            else: ret1 = 'p'
+           # print(node1[1])
+            
+            if node2[1] == 'Activity' : ret2 = 'ac'
+            elif node2[1] == 'Data': ret2 = 'd'
+            elif node2[1] == '개인' : ret2 = 'p'
+            else: ret2 = 'p'
+           # print(node2[1])
+            #print(ret1+str(index))
+            #print(ret1, ret2)
+            ret.append(ret1+str(index))
+            ret.append(ret2+str(index))
+            #print(ret)
+
+            '''
+            '''
+            node = [node1[0], node2[0]]
+            if node2[0] == '생성': #두번째 노드가 
+                if edge[0] == 'Generate':
+                    create = ("CREATE (d:Data), (ac:Activity) "
+                             "SET d = {name: " + "'" + node1[0] +"', graph : " + str(i) + "},"
+                             "   ac = {name: " + "'" + node2[0] +"', graph : " + str(i) + "} "
+                             "CREATE (ac) <- [g:Generate] - (d)")
+                    search = ("MATCH (d"+str(index)+":Data), (ac"+str(index)+":Activity) "
+                              "WHERE d"+str(index)+".name =  " + "'" + node1[0] +"' and d"+str(index)+".graph = " + str(i) + " "
+                              "and ac"+str(index)+".name = "+ "'" + node2[0] + "' and ac"+str(index)+".graph = " + str(i) + " "
+                              "MATCH path"+str(index)+" = (d"+str(index)+")-[]-(ac"+str(index)+")")
+                elif edge[0] == 'Act':
+                    create = ("CREATE (p:Person), (ac:Activity) "
+                             "SET p = {name: " + "'" + node1[0] + "', graph : " + str(i) + "},"
+                             "   ac = {name: " + "'" + node2[0] + "', graph : " + str(i) + "} "
+                             "CREATE (ac) - [a:Act] -> (p)")
+                    search = ("MATCH (p"+str(index)+":Person), (ac"+str(index)+":Activity) "
+                              "WHERE p"+str(index)+".name =  " + "'" + node1[0] +"' and p"+str(index)+".graph = " + str(i) + " "
+                              "and ac"+str(index)+".name = "+ "'" + node2[0] + "' and ac"+str(index)+".graph = " + str(i) + " "
+                              "MATCH path"+str(index)+" = (p"+str(index)+")-[]-(ac"+str(index)+")")
+            elif node2[0] == '가공':
+                if edge[0] == 'Generate':
+                    create = ("CREATE (d:Data), (ac:Activity) "
+                             "SET d = {name: " + "'" + node1[0] + "', graph : " + str(i) + "},"
+                             "   ac = {name: " + "'" + node2[0] + "', graph : " + str(i) + "} "
+                             "CREATE (ac) <- [g:Generate] - (d)")
+                    search = ("MATCH (d"+str(index)+":Data), (ac"+str(index)+":Activity) "
+                              "WHERE d"+str(index)+".name =  " + "'" + node1[0] +"' and d"+str(index)+".graph = " + str(i) + " "
+                              "and ac"+str(index)+".name = "+ "'" + node2[0] + "' and ac"+str(index)+".graph = " + str(i) + " "                  
+                              "MATCH path"+str(index)+" = (d"+str(index)+")-[]-(ac"+str(index)+")")
+                elif edge[0] == 'Act':
+                    create = ("CREATE (p:Person), (ac:Activity) "
+                             "SET p = {name: " + "'" + node1[0] + "', graph : " + str(i) + "},"
+                             "   ac = {name: " + "'" + node2[0] + "', graph : " + str(i) + "} " 
+                             "CREATE (ac) - [a:Act] -> (p)")
+                    search = ("MATCH (p"+str(index)+":Person), (ac"+str(index)+":Activity) "
+                              "WHERE p"+str(index)+".name =  " + "'" + node1[0] +"' and p"+str(index)+".graph = " + str(i) + " "
+                              "and ac"+str(index)+".name = "+ "'" + node2[0] + "' and ac"+str(index)+".graph = " + str(i) + " "   
+                              "MATCH path"+str(index)+" = (p"+str(index)+")-[]-(ac"+str(index)+")")
+            elif node2[0] == '제공':
+                if edge[0] == 'Generate':
+                    create = ("CREATE (d:Data), (ac:Activity) "
+                             "SET d = {name: " + "'" + node1[0] + "', graph : " + str(i) + "},"
+                             "   ac = {name: " + "'" + node2[0] + "', graph : " + str(i) + "} "
+                             "CREATE (ac) <- [g:Generate] - (d)")
+                    search = ("MATCH (d"+str(index)+":Data), (ac"+str(index)+":Activity) "
+                              "WHERE d"+str(index)+".name =  " + "'" + node1[0] +"' and d"+str(index)+".graph = " + str(i) + " "
+                              " and ac"+str(index)+".name = "+ "'" + node2[0] + "' and ac"+str(index)+".graph = " + str(i) + " "
+                              "MATCH path"+str(index)+" = (d"+str(index)+")-[]-(ac"+str(index)+")")
+                elif edge[0] == 'Send':
+                    create = ("CREATE (p:Person), (ac:Activity) "
+                             "SET p = {name: " + "'" + node1[0] + "', graph : " + str(i) + "},"
+                             "   ac = {name: " + "'" + node2[0] + "', graph : " + str(i) + "} "
+                             "CREATE (ac) - [s:Send] -> (p)")
+                    search = ("MATCH (p"+str(index)+":Person), (ac"+str(index)+":Activity) "
+                              "WHERE p"+str(index)+".name =  " + "'" + node1[0] +"' and p"+str(index)+".graph = " + str(i) + " "
+                              " and ac"+str(index)+".name = "+ "'" + node2[0] + "' and ac"+str(index)+".graph = " + str(i) + " "
+                              "MATCH path"+str(index)+" = (p"+str(index)+")-[]-(ac"+str(index)+")")
+                elif edge[0] == 'Receive':
+                    create = ("CREATE (p:Person), (ac:Activity) "
+                             "SET p = {name: " + "'" + node1[0] + "', graph : " + str(i) + "},"
+                             "   ac = {name: " + "'" + node2[0] + "', graph : " + str(i) + "} "
+                             "CREATE (ac) - [r:Receive] -> (p)")
+                    search = ("MATCH (p"+str(index)+":Person), (ac"+str(index)+":Activity) "
+                              "WHERE p"+str(index)+".name =  " + "'" + node1[0] +"' and p"+str(index)+".graph = " + str(i) + " "
+                              " and ac"+str(index)+".name = "+ "'" + node2[0] + "' and ac"+str(index)+".graph = " + str(i) + " "      
+                              "MATCH path"+str(index)+" = (p"+str(index)+")-[]-(ac"+str(index)+")")
+            returns.append("path"+str(index))
+            searches.append(search)
+            creates.append(create)
+            nodes.append(node) 
+            #returns.append(ret)
+        #print(searches)
+        searchesFinal.append(searches)
+        createsFinal.append(creates)
+        nodeInfoFinal.append(nodes)
+        
+        nodesInfo = []
+        for i in range(len(nodeInfoFinal)):
+            nodesInfo.append(list(set(np.array(nodeInfoFinal[i]).flatten().tolist()))) 
+        
+        returnCypher = 'RETURN '
+        for ret in returns:
+            returnCypher = returnCypher + ret + ', '
+        returnCypher = returnCypher[:len(returnCypher)-2]      
+        returnsFinal.append(returnCypher)
+
+
+    createResult = [item for sublist in createsFinal for item in sublist]
+
+   
+    cypherFinal = []
+    for i in range(len(searchesFinal)):
+        cyphers = ''
+        for j in range(len(searchesFinal[i])):
+            cyphers = cyphers + searchesFinal[i][j] + ' '
+        cypherFinal.append(cyphers + returnsFinal[i])
+    
+    ranking = []
+    for i in range(len(supports)):
+        ranking.append([supports[i], cypherFinal[i], nodesInfo[i]])
+    
+    ranking = sorted(ranking, key = operator.itemgetter(0), reverse=True)
+        
+    outTable = '/'        
+    sup = '^'
+    node = '^-'
+    for i in range(len(ranking)):
+        outTable = outTable + ranking[i][1] +'/'
+        sup = sup + str(ranking[i][0]) + '^'
+        for n in ranking[i][2]:
+            node = node + n + '-'
+        node = node + '^'
+
+    outTable = outTable + '|' + sup + '|' + node
+    #print(outTable)
+    '''    
+  
+    
+    '''
+    #upload FSM result graphs to NEO4j
+    driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "wowhi223"), encrypted=False)    
+
+    with driver.session() as session:
+        for create in createResult:
+            #print(create)
+            session.write_transaction(uploadFSMresults, create)
+            
+        session.read_transaction(merge_data)
+        session.read_transaction(merge_person)
+        session.read_transaction(merge_activity)
+        session.read_transaction(delete_duplRelation)
+    driver.close()
+    '''
+        
